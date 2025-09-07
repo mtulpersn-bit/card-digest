@@ -14,13 +14,160 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      documents: {
+        Row: {
+          content: string | null
+          cover_image: string | null
+          created_at: string
+          description: string | null
+          id: string
+          read_count: number | null
+          slug: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content?: string | null
+          cover_image?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          read_count?: number | null
+          slug: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string | null
+          cover_image?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          read_count?: number | null
+          slug?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          bio: string | null
+          created_at: string
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+          username: string | null
+        }
+        Insert: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+          username?: string | null
+        }
+        Update: {
+          avatar_url?: string | null
+          bio?: string | null
+          created_at?: string
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+          username?: string | null
+        }
+        Relationships: []
+      }
+      reading_cards: {
+        Row: {
+          card_order: number | null
+          content: string
+          created_at: string
+          document_id: string
+          highlight_text: string | null
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          card_order?: number | null
+          content: string
+          created_at?: string
+          document_id: string
+          highlight_text?: string | null
+          id?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          card_order?: number | null
+          content?: string
+          created_at?: string
+          document_id?: string
+          highlight_text?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reading_cards_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      saved_cards: {
+        Row: {
+          created_at: string
+          id: string
+          reading_card_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reading_card_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reading_card_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_cards_reading_card_id_fkey"
+            columns: ["reading_card_id"]
+            isOneToOne: false
+            referencedRelation: "reading_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      generate_unique_slug: {
+        Args: { base_title: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
