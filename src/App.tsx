@@ -7,6 +7,7 @@ import { useAuth } from "@/hooks/useAuth";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Documents from "./pages/Documents";
+import DocumentDetail from "./pages/DocumentDetail";
 import Timeline from "./pages/Timeline";
 import Saved from "./pages/Saved";
 import NotFound from "./pages/NotFound";
@@ -47,6 +48,11 @@ const App = () => (
           <Route path="/documents" element={
             <ProtectedRoute>
               <Documents />
+            </ProtectedRoute>
+          } />
+          <Route path="/document/:slug" element={
+            <ProtectedRoute>
+              <DocumentDetail />
             </ProtectedRoute>
           } />
           <Route path="/timeline" element={
