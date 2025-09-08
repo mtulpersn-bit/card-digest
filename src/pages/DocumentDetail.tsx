@@ -4,9 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { ArrowLeft, BookOpen, Eye, User, Calendar, Heart } from 'lucide-react';
+import { ArrowLeft, BookOpen, Eye, User, Calendar, Heart, ThumbsUp, Share2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import Header from '@/components/Header';
@@ -32,7 +33,6 @@ interface DocumentData {
     id: string;
     title: string;
     content: string;
-    highlight_text: string;
     image_url?: string;
     card_order: number;
   }>;
@@ -76,7 +76,6 @@ const DocumentDetail = () => {
             id,
             title,
             content,
-            highlight_text,
             image_url,
             card_order
           )
@@ -302,7 +301,25 @@ const DocumentDetail = () => {
               </div>
               
               {user?.id === document.user_id && (
-                <div className="ml-6">
+                <div className="ml-6 space-y-2">
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Eye className="w-4 h-4 mr-2" />
+                        Belgeyi Görüntüle
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>{document.title}</DialogTitle>
+                      </DialogHeader>
+                      <div className="prose prose-slate max-w-none mt-4">
+                        <p className="whitespace-pre-wrap text-foreground leading-relaxed">
+                          {document.content}
+                        </p>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                   <CreateReadingCardDialog
                     documentId={document.id}
                     onCardCreated={fetchDocument}
@@ -312,22 +329,6 @@ const DocumentDetail = () => {
             </div>
           </div>
 
-          {/* Content */}
-          {document.content && (
-            <Card className="mb-8 bg-gradient-card border-0">
-              <CardHeader>
-                <CardTitle className="flex items-center space-x-2">
-                  <BookOpen className="w-5 h-5" />
-                  <span>İçerik</span>
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="prose prose-slate max-w-none">
-                  <p className="whitespace-pre-wrap text-foreground">{document.content}</p>
-                </div>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Reading Cards */}
           <div className="space-y-6">
@@ -350,43 +351,25 @@ const DocumentDetail = () => {
                 </CardContent>
               </Card>
             ) : (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {document.reading_cards.map((card, index) => (
-                  <Card key={card.id} className="bg-gradient-card border-0 hover:shadow-medium transition-all duration-300">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between">
-                        <CardTitle className="text-lg font-semibold text-foreground flex items-center space-x-2">
-                          <span className="w-8 h-8 bg-primary/10 text-primary rounded-full flex items-center justify-center text-sm font-medium">
-                            {index + 1}
-                          </span>
-                          <span>{card.title}</span>
-                        </CardTitle>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleSaveCard(card.id)}
-                          className={`hover:bg-primary/10 ${savedCards.has(card.id) ? 'text-red-500' : 'text-muted-foreground'}`}
-                        >
-                          <Heart className={`w-4 h-4 ${savedCards.has(card.id) ? 'fill-current' : ''}`} />
-                        </Button>
-                      </div>
+                  <Card key={card.id} className="bg-gradient-card border-0 hover:shadow-medium transition-all duration-300 overflow-hidden">
+                    <CardHeader className="pb-4">
+                      <CardTitle className="text-2xl font-bold text-foreground flex items-center space-x-3">
+                        <span className="w-10 h-10 bg-primary/15 text-primary rounded-full flex items-center justify-center text-lg font-bold">
+                          {index + 1}
+                        </span>
+                        <span className="leading-tight">{card.title}</span>
+                      </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      {card.highlight_text && (
-                        <div className="mb-4 p-3 bg-primary/5 border-l-4 border-primary rounded-r">
-                          <p className="text-sm italic text-muted-foreground">
-                            "{card.highlight_text}"
-                          </p>
-                        </div>
-                      )}
-                      
+                    <CardContent className="pb-4">
                       {card.image_url ? (
-                        <div className="flex flex-col lg:flex-row gap-6">
+                        <div className="flex flex-col lg:flex-row gap-6 mb-6">
                           <div className="lg:w-1/3 flex-shrink-0">
                             <img 
                               src={card.image_url} 
                               alt={card.title}
-                              className="w-full h-48 lg:h-64 object-cover rounded-lg"
+                              className="w-full h-48 lg:h-64 object-cover rounded-lg shadow-lg"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display = 'none';
                               }}
@@ -394,15 +377,42 @@ const DocumentDetail = () => {
                           </div>
                           <div className="lg:w-2/3">
                             <div className="prose prose-slate max-w-none">
-                              <p className="whitespace-pre-wrap text-foreground">{card.content}</p>
+                              <p className="whitespace-pre-wrap text-foreground text-lg leading-relaxed font-medium">
+                                {card.content}
+                              </p>
                             </div>
                           </div>
                         </div>
                       ) : (
-                        <div className="prose prose-slate max-w-none">
-                          <p className="whitespace-pre-wrap text-foreground">{card.content}</p>
+                        <div className="prose prose-slate max-w-none mb-6">
+                          <p className="whitespace-pre-wrap text-foreground text-lg leading-relaxed font-medium">
+                            {card.content}
+                          </p>
                         </div>
                       )}
+                      
+                      {/* Action buttons */}
+                      <div className="flex items-center justify-between pt-4 border-t border-border/50">
+                        <div className="flex items-center space-x-4">
+                          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+                            <ThumbsUp className="w-4 h-4 mr-2" />
+                            Beğen
+                          </Button>
+                          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+                            <Share2 className="w-4 h-4 mr-2" />
+                            Paylaş
+                          </Button>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleSaveCard(card.id)}
+                          className={`hover:bg-primary/10 ${savedCards.has(card.id) ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
+                        >
+                          <Heart className={`w-4 h-4 mr-2 ${savedCards.has(card.id) ? 'fill-current' : ''}`} />
+                          {savedCards.has(card.id) ? 'Kaydedildi' : 'Kaydet'}
+                        </Button>
+                      </div>
                     </CardContent>
                   </Card>
                 ))}

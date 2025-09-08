@@ -22,7 +22,6 @@ const CreateReadingCardDialog = ({ documentId, onCardCreated }: CreateReadingCar
   const [formData, setFormData] = useState({
     title: '',
     content: '',
-    highlight_text: '',
     image_url: ''
   });
 
@@ -49,7 +48,6 @@ const CreateReadingCardDialog = ({ documentId, onCardCreated }: CreateReadingCar
           document_id: documentId,
           title: formData.title.trim(),
           content: formData.content.trim(),
-          highlight_text: formData.highlight_text.trim() || null,
           image_url: formData.image_url.trim() || null,
           card_order: nextOrder
         });
@@ -61,7 +59,7 @@ const CreateReadingCardDialog = ({ documentId, onCardCreated }: CreateReadingCar
         description: "Yeni okuma kartı başarıyla eklendi.",
       });
 
-      setFormData({ title: '', content: '', highlight_text: '', image_url: '' });
+      setFormData({ title: '', content: '', image_url: '' });
       setIsOpen(false);
       onCardCreated();
     } catch (error) {
@@ -97,16 +95,6 @@ const CreateReadingCardDialog = ({ documentId, onCardCreated }: CreateReadingCar
               onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
               placeholder="Kart başlığı..."
               required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="highlight_text">Vurgulu Metin (İsteğe bağlı)</Label>
-            <Input
-              id="highlight_text"
-              value={formData.highlight_text}
-              onChange={(e) => setFormData(prev => ({ ...prev, highlight_text: e.target.value }))}
-              placeholder="Belgeden alıntı veya vurgulu metin..."
             />
           </div>
 
