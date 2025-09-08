@@ -11,6 +11,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import Header from '@/components/Header';
 import { useToast } from '@/hooks/use-toast';
+import CreateReadingCardDialog from '@/components/CreateReadingCardDialog';
 
 interface DocumentData {
   id: string;
@@ -32,6 +33,7 @@ interface DocumentData {
     title: string;
     content: string;
     highlight_text: string;
+    image_url: string;
     card_order: number;
   }>;
 }
@@ -75,6 +77,7 @@ const DocumentDetail = () => {
             title,
             content,
             highlight_text,
+            image_url,
             card_order
           )
         `)
@@ -289,11 +292,24 @@ const DocumentDetail = () => {
               </div>
             </div>
 
-            <h1 className="text-3xl font-bold text-foreground mb-4">{document.title}</h1>
-            
-            {document.description && (
-              <p className="text-lg text-muted-foreground mb-6">{document.description}</p>
-            )}
+            <div className="flex items-start justify-between mb-6">
+              <div className="flex-1">
+                <h1 className="text-3xl font-bold text-foreground mb-4">{document.title}</h1>
+                
+                {document.description && (
+                  <p className="text-lg text-muted-foreground">{document.description}</p>
+                )}
+              </div>
+              
+              {user?.id === document.user_id && (
+                <div className="ml-6">
+                  <CreateReadingCardDialog
+                    documentId={document.id}
+                    onCardCreated={fetchDocument}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Content */}
@@ -363,9 +379,30 @@ const DocumentDetail = () => {
                           </p>
                         </div>
                       )}
-                      <div className="prose prose-slate max-w-none">
-                        <p className="whitespace-pre-wrap text-foreground">{card.content}</p>
-                      </div>
+                      
+                      {card.image_url ? (
+                        <div className="flex flex-col lg:flex-row gap-6">
+                          <div className="lg:w-1/3 flex-shrink-0">
+                            <img 
+                              src={card.image_url} 
+                              alt={card.title}
+                              className="w-full h-48 lg:h-64 object-cover rounded-lg"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          </div>
+                          <div className="lg:w-2/3">
+                            <div className="prose prose-slate max-w-none">
+                              <p className="whitespace-pre-wrap text-foreground">{card.content}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="prose prose-slate max-w-none">
+                          <p className="whitespace-pre-wrap text-foreground">{card.content}</p>
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 ))}
