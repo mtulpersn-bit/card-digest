@@ -33,7 +33,7 @@ interface DocumentData {
     title: string;
     content: string;
     highlight_text: string;
-    image_url: string;
+    image_url?: string;
     card_order: number;
   }>;
 }
