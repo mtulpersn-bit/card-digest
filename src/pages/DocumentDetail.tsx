@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { ArrowLeft, BookOpen, Eye, User, Calendar, Heart, ThumbsUp, Share2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Eye, User, Calendar, Bookmark, ThumbsUp, Share2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import Header from '@/components/Header';
@@ -354,14 +354,6 @@ const DocumentDetail = () => {
               <div className="space-y-6">
                 {document.reading_cards.map((card, index) => (
                   <Card key={card.id} className="bg-gradient-card border-0 hover:shadow-medium transition-all duration-300 overflow-hidden">
-                    <CardHeader className="pb-4">
-                      <CardTitle className="text-2xl font-bold text-foreground flex items-center space-x-3">
-                        <span className="w-10 h-10 bg-primary/15 text-primary rounded-full flex items-center justify-center text-lg font-bold">
-                          {index + 1}
-                        </span>
-                        <span className="leading-tight">{card.title}</span>
-                      </CardTitle>
-                    </CardHeader>
                     <CardContent className="pb-4">
                       {card.image_url ? (
                         <div className="flex flex-col lg:flex-row gap-6 mb-6">
@@ -376,6 +368,12 @@ const DocumentDetail = () => {
                             />
                           </div>
                           <div className="lg:w-2/3">
+                            <CardTitle className="text-2xl font-bold text-foreground flex items-center space-x-3 mb-4">
+                              <span className="w-10 h-10 bg-primary/15 text-primary rounded-full flex items-center justify-center text-lg font-bold">
+                                {index + 1}
+                              </span>
+                              <span className="leading-tight">{card.title}</span>
+                            </CardTitle>
                             <div className="prose prose-slate max-w-none">
                               <p className="whitespace-pre-wrap text-foreground text-lg leading-relaxed font-medium">
                                 {card.content}
@@ -384,10 +382,18 @@ const DocumentDetail = () => {
                           </div>
                         </div>
                       ) : (
-                        <div className="prose prose-slate max-w-none mb-6">
-                          <p className="whitespace-pre-wrap text-foreground text-lg leading-relaxed font-medium">
-                            {card.content}
-                          </p>
+                        <div className="mb-6">
+                          <CardTitle className="text-2xl font-bold text-foreground flex items-center space-x-3 mb-4">
+                            <span className="w-10 h-10 bg-primary/15 text-primary rounded-full flex items-center justify-center text-lg font-bold">
+                              {index + 1}
+                            </span>
+                            <span className="leading-tight">{card.title}</span>
+                          </CardTitle>
+                          <div className="prose prose-slate max-w-none">
+                            <p className="whitespace-pre-wrap text-foreground text-lg leading-relaxed font-medium">
+                              {card.content}
+                            </p>
+                          </div>
                         </div>
                       )}
                       
@@ -407,9 +413,9 @@ const DocumentDetail = () => {
                           variant="ghost"
                           size="sm"
                           onClick={() => toggleSaveCard(card.id)}
-                          className={`hover:bg-primary/10 ${savedCards.has(card.id) ? 'text-red-500' : 'text-muted-foreground hover:text-red-500'}`}
+                          className={`hover:bg-primary/10 ${savedCards.has(card.id) ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
                         >
-                          <Heart className={`w-4 h-4 mr-2 ${savedCards.has(card.id) ? 'fill-current' : ''}`} />
+                          <Bookmark className={`w-4 h-4 mr-2 ${savedCards.has(card.id) ? 'fill-current' : ''}`} />
                           {savedCards.has(card.id) ? 'Kaydedildi' : 'Kaydet'}
                         </Button>
                       </div>

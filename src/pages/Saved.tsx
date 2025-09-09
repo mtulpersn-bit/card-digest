@@ -5,7 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { BookOpen, User, BookmarkX, ExternalLink, Bookmark } from 'lucide-react';
+import { BookOpen, User, BookmarkX, ExternalLink, Bookmark, ThumbsUp, Share2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { useToast } from '@/components/ui/use-toast';
@@ -19,6 +19,7 @@ interface SavedCard {
     id: string;
     title: string;
     content: string;
+    image_url?: string;
     highlight_text: string | null;
     created_at: string;
     document_id: string;
@@ -57,6 +58,7 @@ const Saved = () => {
             id,
             title,
             content,
+            image_url,
             highlight_text,
             created_at,
             document_id,
@@ -174,33 +176,56 @@ const Saved = () => {
         </CardHeader>
         
         <CardContent className="space-y-4">
-          <div>
-            <CardTitle className="text-lg font-semibold text-foreground mb-2">
-              {card.title}
-            </CardTitle>
-            
-            {card.highlight_text && (
-              <div className="bg-accent/50 border-l-4 border-accent pl-4 py-2 mb-3">
-                <p className="text-sm italic text-accent-foreground">
-                  "{card.highlight_text}"
-                </p>
+          {card.image_url ? (
+            <div className="flex flex-col lg:flex-row gap-4 mb-4">
+              <div className="lg:w-1/3 flex-shrink-0">
+                <img 
+                  src={card.image_url} 
+                  alt={card.title}
+                  className="w-full h-48 lg:h-64 object-cover rounded-lg shadow-lg"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = 'none';
+                  }}
+                />
               </div>
-            )}
-            
-            <CardDescription className="text-foreground leading-relaxed">
-              {card.content}
-            </CardDescription>
-          </div>
+              <div className="lg:w-2/3">
+                <CardTitle className="text-lg font-semibold text-foreground mb-2">
+                  {card.title}
+                </CardTitle>
+                <CardDescription className="text-foreground leading-relaxed">
+                  {card.content}
+                </CardDescription>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <CardTitle className="text-lg font-semibold text-foreground mb-2">
+                {card.title}
+              </CardTitle>
+              <CardDescription className="text-foreground leading-relaxed">
+                {card.content}
+              </CardDescription>
+            </div>
+          )}
           
-          <div className="flex items-center justify-between pt-2 border-t border-border/50">
-            <Link 
-              to={`/document/${card.documents?.slug}`}
-              className="text-sm text-primary hover:text-primary-hover font-medium"
-            >
-              {card.documents?.title}
-            </Link>
-            
+          <div className="flex items-center justify-between pt-4 border-t border-border/50">
+            <div className="flex items-center space-x-4">
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+                <ThumbsUp className="w-4 h-4 mr-2" />
+                Beğen
+              </Button>
+              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+                <Share2 className="w-4 h-4 mr-2" />
+                Paylaş
+              </Button>
+            </div>
             <div className="flex items-center space-x-2">
+              <Link 
+                to={`/document/${card.documents?.slug}`}
+                className="text-sm text-primary hover:text-primary-hover font-medium"
+              >
+                {card.documents?.title}
+              </Link>
               <Badge variant="secondary" className="text-xs">
                 Okuma Kartı
               </Badge>
