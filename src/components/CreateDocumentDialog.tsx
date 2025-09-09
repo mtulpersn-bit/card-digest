@@ -75,9 +75,15 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
 
     setIsLoading(true);
     try {
-      // For now, we'll handle PDF as text content
-      // In a real app, you'd use a PDF parser
-      const fileContent = `[PDF Dosyası: ${file.name}]\n\nBu belge PDF dosyasından yüklenmiştir. PDF içeriğini görüntülemek için gelişmiş PDF okuma özelliği gelecek güncellemelerde eklenecektir.`;
+      // Upload PDF to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
 
       // Generate slug using the database function
       const { data: slugData, error: slugError } = await supabase
@@ -90,7 +96,8 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
         .insert({
           title: title.trim(),
           description: description.trim() || null,
-          content: fileContent,
+          content: `PDF Dosyası: ${file.name}`,
+          file_url: uploadData.path,
           slug: slugData,
           user_id: user.id,
         })

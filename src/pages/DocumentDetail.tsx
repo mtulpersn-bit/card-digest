@@ -24,6 +24,7 @@ interface DocumentData {
   created_at: string;
   user_id: string;
   cover_image?: string;
+  file_url?: string;
   profiles: {
     full_name: string;
     username: string;
@@ -72,6 +73,7 @@ const DocumentDetail = () => {
           created_at,
           user_id,
           cover_image,
+          file_url,
           reading_cards (
             id,
             title,
@@ -313,10 +315,20 @@ const DocumentDetail = () => {
                       <DialogHeader>
                         <DialogTitle>{document.title}</DialogTitle>
                       </DialogHeader>
-                      <div className="prose prose-slate max-w-none mt-4">
-                        <p className="whitespace-pre-wrap text-foreground leading-relaxed">
-                          {document.content}
-                        </p>
+                      <div className="mt-4">
+                        {document.file_url ? (
+                          <iframe
+                            src={`https://mprwhgypstsjojmmzubz.supabase.co/storage/v1/object/public/documents/${document.file_url}`}
+                            className="w-full h-[70vh] border rounded-lg"
+                            title={document.title}
+                          />
+                        ) : (
+                          <div className="prose prose-slate max-w-none">
+                            <p className="whitespace-pre-wrap text-foreground leading-relaxed">
+                              {document.content}
+                            </p>
+                          </div>
+                        )}
                       </div>
                     </DialogContent>
                   </Dialog>
