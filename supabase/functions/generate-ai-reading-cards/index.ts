@@ -50,24 +50,35 @@ serve(async (req) => {
     console.log('Processing content with AI for document:', documentId);
 
     // AI prompt for reading card generation
-    const systemPrompt = `Sen bir PDF okuma asistanısın. Amacın, okuyucunun düzenli okuma alışkanlığı kazanmasını sağlamak ve içeriği daha kolay takip edebilmesi için içeriği "okuma kartlarına" dönüştürmek.
+    const systemPrompt = `You are a PDF reading assistant. Your goal is to help readers develop regular reading habits and make content easier to follow by converting content into "reading cards".
 
-Kurallar:
-- Metindeki kelimeleri değiştirme, olduğu gibi koru
-- Metni sadece konu başlıklarına ve bütünlüğe göre parçalara ayır
-- Kartların sırası, orijinal sıralamaya sadık kalsın
-- Ek özet, yorum veya açıklama ekleme
-- Her kart için uygun bir başlık oluştur
-- Nihai çıktı, timeline akışında okunabilecek doğal okuma kartları olsun
+CRITICAL INSTRUCTIONS:
+- You MUST ALWAYS respond in valid JSON format, no matter what
+- Never respond with plain text or explanations
+- If you cannot process the content, return an error in JSON format
 
-JSON formatında döndür:
+Rules for content processing:
+- Do not change the words in the text, keep them as they are
+- Divide the text only according to topic headings and integrity
+- Keep the order of cards faithful to the original order  
+- Do not add additional summaries, comments or explanations
+- Create appropriate titles for each card
+- Final output should be natural reading cards that can be read in timeline flow
+
+You MUST return ONLY this JSON format:
 {
   "cards": [
     {
-      "title": "Kart başlığı",
-      "content": "Orijinal metin içeriği"
+      "title": "Card title",
+      "content": "Original text content"
     }
   ]
+}
+
+If there's an error or you cannot process the content, return:
+{
+  "error": "Error description",
+  "cards": []
 }`;
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -80,10 +91,10 @@ JSON formatında döndür:
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Lütfen aşağıdaki içeriği okuma kartlarına dönüştür:\n\n${contentToProcess}` }
+          { role: 'user', content: `Please convert the following content into reading cards. Remember to respond ONLY with valid JSON:\n\n${contentToProcess}` }
         ],
         max_tokens: 4000,
-        temperature: 0.3
+        temperature: 0.1
       }),
     });
 
@@ -100,14 +111,21 @@ JSON formatında döndür:
     let cards: ReadingCard[];
     try {
       const parsed = JSON.parse(aiContent);
+      
+      // Check if AI returned an error
+      if (parsed.error) {
+        throw new Error(parsed.error);
+      }
+      
       cards = parsed.cards || [];
     } catch (parseError) {
       console.error('Error parsing AI response:', parseError);
-      throw new Error('AI yanıtı işlenemedi');
+      console.error('AI Response was:', aiContent);
+      throw new Error('AI yanıtı geçerli JSON formatında değil. Lütfen tekrar deneyin.');
     }
 
     if (!cards.length) {
-      throw new Error('AI okuma kartı oluşturamadı');
+      throw new Error('AI içerik için okuma kartı oluşturamadı');
     }
 
     // Get the next card order
