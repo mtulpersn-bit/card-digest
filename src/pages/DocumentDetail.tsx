@@ -13,6 +13,7 @@ import { tr } from 'date-fns/locale';
 import Header from '@/components/Header';
 import { useToast } from '@/hooks/use-toast';
 import CreateReadingCardDialog from '@/components/CreateReadingCardDialog';
+import CreateAIReadingCardDialog from '@/components/CreateAIReadingCardDialog';
 
 interface DocumentData {
   id: string;
@@ -334,6 +335,12 @@ const DocumentDetail = () => {
                   </Dialog>
                   <CreateReadingCardDialog
                     documentId={document.id}
+                    onCardCreated={fetchDocument}
+                  />
+                  <CreateAIReadingCardDialog
+                    documentId={document.id}
+                    documentContent={document.content}
+                    fileUrl={document.file_url}
                     onCardCreated={fetchDocument}
                   />
                 </div>
