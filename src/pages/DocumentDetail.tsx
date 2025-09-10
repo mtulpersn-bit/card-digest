@@ -318,7 +318,7 @@ const DocumentDetail = () => {
                       <div className="mt-4">
                         {document.file_url ? (
                           <iframe
-                            src={`https://mprwhgypstsjojmmzubz.supabase.co/storage/v1/object/public/documents/${document.file_url}#toolbar=0&view=FitH`}
+                            src={`https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(`https://mprwhgypstsjojmmzubz.supabase.co/storage/v1/object/public/documents/${document.file_url}`)}`}
                             className="w-full h-[70vh] border rounded-lg"
                             title={document.title}
                           />
