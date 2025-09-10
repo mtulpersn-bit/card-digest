@@ -40,7 +40,14 @@ serve(async (req) => {
     // TODO: Implement OCR for PDF files when needed
     if (fileUrl && !documentContent) {
       // For now, we'll ask user to provide content or implement OCR later
-      throw new Error('PDF OCR işlemi şu anda desteklenmiyor. Lütfen belgenizi manuel olarak oluşturun.');
+      console.warn('PDF OCR not supported yet; rejecting request');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'PDF OCR şu anda desteklenmiyor. Lütfen içeriği metin olarak ekleyin.'
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     if (!contentToProcess) {
@@ -107,25 +114,46 @@ If there's an error or you cannot process the content, return:
     
     console.log('AI Response:', aiContent);
 
-    // Parse AI response
-    let cards: ReadingCard[];
+    // Parse AI response (robust JSON extraction)
+    let cards: ReadingCard[] = [];
+    const raw = typeof aiContent === 'string' ? aiContent : JSON.stringify(aiContent);
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    let jsonText = cleaned;
+    const firstBrace = cleaned.indexOf('{');
+    const lastBrace = cleaned.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1) {
+      jsonText = cleaned.slice(firstBrace, lastBrace + 1);
+    }
+
+    let parsed: any;
     try {
-      const parsed = JSON.parse(aiContent);
-      
-      // Check if AI returned an error
-      if (parsed.error) {
-        throw new Error(parsed.error);
-      }
-      
-      cards = parsed.cards || [];
+      parsed = JSON.parse(jsonText);
     } catch (parseError) {
       console.error('Error parsing AI response:', parseError);
       console.error('AI Response was:', aiContent);
-      throw new Error('AI yanıtı geçerli JSON formatında değil. Lütfen tekrar deneyin.');
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'AI yanıtı geçerli JSON formatında değil. Lütfen tekrar deneyin.'
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
+    if (parsed && parsed.error) {
+      console.error('AI indicated error:', parsed.error);
+      return new Response(JSON.stringify({ success: false, error: parsed.error }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    cards = Array.isArray(parsed?.cards) ? parsed.cards : [];
     if (!cards.length) {
-      throw new Error('AI içerik için okuma kartı oluşturamadı');
+      return new Response(JSON.stringify({ success: false, error: 'AI içerik için okuma kartı oluşturamadı' }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Get the next card order
