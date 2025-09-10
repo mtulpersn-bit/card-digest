@@ -43,11 +43,17 @@ interface DocumentData {
 const DocumentDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
   const { toast } = useToast();
   const [document, setDocument] = useState<DocumentData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [savedCards, setSavedCards] = useState<Set<string>>(new Set());
+
+  // Debug logging
+  console.log('Current user:', user);
+  console.log('Document:', document);
+  console.log('User ID match:', user?.id === document?.user_id);
+  console.log('Auth loading:', loading);
 
   useEffect(() => {
     if (slug) {
@@ -303,11 +309,11 @@ const DocumentDetail = () => {
                 )}
               </div>
               
-              {user?.id === document.user_id && (
+              {(user?.id === document.user_id || loading) && (
                 <div className="ml-6 space-y-2">
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
+                      <Button variant="outline" size="sm" disabled={loading}>
                         <Eye className="w-4 h-4 mr-2" />
                         Belgeyi Görüntüle
                       </Button>
