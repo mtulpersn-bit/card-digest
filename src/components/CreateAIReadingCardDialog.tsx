@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Sparkles, Loader2 } from 'lucide-react';
+import { extractTextFromPdf } from '@/lib/pdf-ocr';
 
 interface CreateAIReadingCardDialogProps {
   documentId: string;
@@ -34,13 +35,24 @@ const CreateAIReadingCardDialog = ({
         description: fileUrl && !documentContent ? "PDF OCR ile taranıyor..." : "AI okuma kartları oluşturuyor...",
       });
 
+      let contentForAI = documentContent;
+
+      if (fileUrl && !contentForAI) {
+        // Client-side OCR to avoid server limitations
+        contentForAI = await extractTextFromPdf(fileUrl, undefined, 'tur');
+        toast({
+          title: "OCR tamamlandı",
+          description: "AI okuma kartları oluşturuluyor...",
+        });
+      }
+
       const { data, error } = await supabase.functions.invoke('generate-ai-reading-cards', {
         body: {
           documentId,
-          documentContent,
+          documentContent: contentForAI,
           fileUrl,
-          userPrompt
-        }
+          userPrompt,
+        },
       });
 
       if (error) throw error;
@@ -55,7 +67,7 @@ const CreateAIReadingCardDialog = ({
       } else {
         throw new Error(data.error || 'Okuma kartları oluşturulamadı');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating AI reading cards:', error);
       toast({
         title: "Hata",
@@ -66,6 +78,7 @@ const CreateAIReadingCardDialog = ({
       setLoading(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
