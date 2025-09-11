@@ -23,18 +23,21 @@ const CreateAIReadingCardDialog = ({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const [inputContent, setInputContent] = useState('');
   const [userPrompt, setUserPrompt] = useState('');
-  const isPDFPlaceholder = !!fileUrl && (!documentContent || documentContent.trim().toLowerCase().startsWith('pdf dosyası'));
 
   const handleCreateAICards = async () => {
     setLoading(true);
     
     try {
+      toast({
+        title: "İşlem başladı...",
+        description: fileUrl && !documentContent ? "PDF OCR ile taranıyor..." : "AI okuma kartları oluşturuyor...",
+      });
+
       const { data, error } = await supabase.functions.invoke('generate-ai-reading-cards', {
         body: {
           documentId,
-          documentContent: isPDFPlaceholder ? inputContent : documentContent,
+          documentContent,
           fileUrl,
           userPrompt
         }
@@ -88,33 +91,20 @@ const CreateAIReadingCardDialog = ({
           <div className="bg-muted/50 p-4 rounded-lg">
             <h4 className="font-medium text-sm mb-2">AI Nasıl Çalışır?</h4>
             <ul className="text-sm text-muted-foreground space-y-1">
-              <li>• Metninizi analiz eder</li>
+              <li>• {fileUrl && !documentContent ? 'Önce PDF OCR ile metin çıkarılır' : 'Metninizi analiz eder'}</li>
               <li>• Konu başlıklarına göre böler</li>
               <li>• Orijinal kelimeleri korur</li>
               <li>• Timeline akışına uygun kartlar oluşturur</li>
             </ul>
           </div>
 
-          {isPDFPlaceholder && (
-            <div className="space-y-3">
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                  <strong>Not:</strong> Bu belge bir PDF. Şimdilik otomatik metin çıkarma yok. Lütfen analiz edilecek metni aşağıya yapıştırın.
-                </p>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ai-content">Analiz edilecek metin</Label>
-                <Textarea
-                  id="ai-content"
-                  placeholder="PDF içeriğinden metni yapıştırın..."
-                  value={inputContent}
-                  onChange={(e) => setInputContent(e.target.value)}
-                  rows={8}
-                />
-              </div>
+          {fileUrl && !documentContent && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg border border-blue-200 dark:border-blue-800">
+              <p className="text-sm text-blue-800 dark:text-blue-200">
+                <strong>PDF Tespit Edildi:</strong> Bu belge otomatik olarak Tesseract OCR ile taranacak ve metin çıkarıldıktan sonra AI okuma kartları oluşturacak.
+              </p>
             </div>
           )}
-
 
           <div className="space-y-4">
             <div className="space-y-2">
@@ -138,12 +128,12 @@ const CreateAIReadingCardDialog = ({
               </Button>
               <Button
                 onClick={handleCreateAICards}
-                disabled={loading || (isPDFPlaceholder && !inputContent?.trim())}
+                disabled={loading}
               >
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Oluşturuluyor...
+                    {fileUrl && !documentContent ? 'OCR + AI İşleniyor...' : 'AI İşleniyor...'}
                   </>
                 ) : (
                   <>

@@ -1,6 +1,7 @@
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.57.2';
+import { createWorker } from 'npm:tesseract.js@5.0.4';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -36,18 +37,52 @@ serve(async (req) => {
 
     let contentToProcess = documentContent;
 
-    // If there's a PDF file, we'll process it (for now, we'll use the content field as fallback)
-    // TODO: Implement OCR for PDF files when needed
+    // If there's a PDF file and no content, use OCR to extract text
     if (fileUrl && !documentContent) {
-      // For now, we'll ask user to provide content or implement OCR later
-      console.warn('PDF OCR not supported yet; rejecting request');
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'PDF OCR şu anda desteklenmiyor. Lütfen içeriği metin olarak ekleyin.'
-      }), {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      console.log('Starting OCR process for PDF:', fileUrl);
+      
+      try {
+        // Get signed URL for the file
+        const { data: signedUrlData } = await supabase.storage
+          .from('documents')
+          .createSignedUrl(fileUrl.replace('/storage/v1/object/public/documents/', ''), 3600);
+        
+        if (!signedUrlData?.signedUrl) {
+          throw new Error('PDF dosyasına erişim sağlanamadı');
+        }
+
+        // Fetch the PDF file
+        const pdfResponse = await fetch(signedUrlData.signedUrl);
+        if (!pdfResponse.ok) {
+          throw new Error('PDF dosyası indirilemedi');
+        }
+
+        const pdfBuffer = await pdfResponse.arrayBuffer();
+        
+        // Create Tesseract worker
+        const worker = await createWorker('tur'); // Turkish language support
+        
+        // Process the PDF with OCR
+        const { data: { text } } = await worker.recognize(new Uint8Array(pdfBuffer));
+        await worker.terminate();
+        
+        contentToProcess = text.trim();
+        console.log('OCR completed, extracted text length:', contentToProcess.length);
+        
+        if (!contentToProcess || contentToProcess.length < 10) {
+          throw new Error('PDF dosyasından yeterli metin çıkarılamadı');
+        }
+        
+      } catch (ocrError) {
+        console.error('OCR Error:', ocrError);
+        return new Response(JSON.stringify({
+          success: false,
+          error: `PDF işleme hatası: ${ocrError.message}`
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     if (!contentToProcess) {
