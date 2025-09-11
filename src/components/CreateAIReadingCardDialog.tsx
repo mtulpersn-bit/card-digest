@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { Sparkles, Loader2 } from 'lucide-react';
@@ -21,6 +23,9 @@ const CreateAIReadingCardDialog = ({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
+  const [inputContent, setInputContent] = useState('');
+  const [userPrompt, setUserPrompt] = useState('');
+  const isPDFPlaceholder = !!fileUrl && (!documentContent || documentContent.trim().toLowerCase().startsWith('pdf dosyası'));
 
   const handleCreateAICards = async () => {
     setLoading(true);
@@ -29,8 +34,9 @@ const CreateAIReadingCardDialog = ({
       const { data, error } = await supabase.functions.invoke('generate-ai-reading-cards', {
         body: {
           documentId,
-          documentContent,
-          fileUrl
+          documentContent: isPDFPlaceholder ? inputContent : documentContent,
+          fileUrl,
+          userPrompt
         }
       });
 
@@ -89,39 +95,64 @@ const CreateAIReadingCardDialog = ({
             </ul>
           </div>
 
-          {fileUrl && !documentContent && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                <strong>Not:</strong> PDF dosyalarından OCR ile metin çıkarma özelliği yakında eklenecek. 
-                Şu anda sadece manuel olarak oluşturulan belgeler için AI kart oluşturma desteklenmektedir.
-              </p>
+          {isPDFPlaceholder && (
+            <div className="space-y-3">
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 p-4 rounded-lg border border-yellow-200 dark:border-yellow-800">
+                <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                  <strong>Not:</strong> Bu belge bir PDF. Şimdilik otomatik metin çıkarma yok. Lütfen analiz edilecek metni aşağıya yapıştırın.
+                </p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="ai-content">Analiz edilecek metin</Label>
+                <Textarea
+                  id="ai-content"
+                  placeholder="PDF içeriğinden metni yapıştırın..."
+                  value={inputContent}
+                  onChange={(e) => setInputContent(e.target.value)}
+                  rows={8}
+                />
+              </div>
             </div>
           )}
 
-          <div className="flex justify-end space-x-3">
-            <Button
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={loading}
-            >
-              İptal
-            </Button>
-            <Button
-              onClick={handleCreateAICards}
-              disabled={loading || (fileUrl && !documentContent)}
-            >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Oluşturuluyor...
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  AI ile Oluştur
-                </>
-              )}
-            </Button>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="ai-prompt">Ek talimatlar (opsiyonel)</Label>
+              <Textarea
+                id="ai-prompt"
+                placeholder="Örn: Başlıklarda kısa cümleler kullan, kartları 5-7 cümleyi geçirme..."
+                value={userPrompt}
+                onChange={(e) => setUserPrompt(e.target.value)}
+                rows={4}
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3">
+              <Button
+                variant="outline"
+                onClick={() => setOpen(false)}
+                disabled={loading}
+              >
+                İptal
+              </Button>
+              <Button
+                onClick={handleCreateAICards}
+                disabled={loading || (isPDFPlaceholder && !inputContent?.trim())}
+              >
+                {loading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Oluşturuluyor...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    AI ile Oluştur
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

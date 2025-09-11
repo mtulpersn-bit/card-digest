@@ -19,7 +19,7 @@ serve(async (req) => {
   }
 
   try {
-    const { documentId, documentContent, fileUrl } = await req.json();
+    const { documentId, documentContent, fileUrl, userPrompt } = await req.json();
     
     if (!documentId) {
       throw new Error('Document ID is required');
@@ -98,7 +98,7 @@ If there's an error or you cannot process the content, return:
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Please convert the following content into reading cards. Remember to respond ONLY with valid JSON:\n\n${contentToProcess}` }
+          { role: 'user', content: `${userPrompt ? `Ek talimatlar:\n${userPrompt}\n\n` : ''}Please convert the following content into reading cards. Remember to respond ONLY with valid JSON:\n\n${contentToProcess}` }
         ],
         max_tokens: 4000,
         temperature: 0.1
