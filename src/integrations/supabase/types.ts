@@ -10,170 +10,17 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "13.0.4"
+    PostgrestVersion: "13.0.5"
   }
   public: {
     Tables: {
-      documents: {
-        Row: {
-          content: string | null
-          cover_image: string | null
-          created_at: string
-          description: string | null
-          file_url: string | null
-          id: string
-          read_count: number | null
-          slug: string
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          content?: string | null
-          cover_image?: string | null
-          created_at?: string
-          description?: string | null
-          file_url?: string | null
-          id?: string
-          read_count?: number | null
-          slug: string
-          title: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          content?: string | null
-          cover_image?: string | null
-          created_at?: string
-          description?: string | null
-          file_url?: string | null
-          id?: string
-          read_count?: number | null
-          slug?: string
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      profiles: {
-        Row: {
-          avatar_url: string | null
-          bio: string | null
-          created_at: string
-          full_name: string | null
-          id: string
-          updated_at: string
-          user_id: string
-          username: string | null
-        }
-        Insert: {
-          avatar_url?: string | null
-          bio?: string | null
-          created_at?: string
-          full_name?: string | null
-          id?: string
-          updated_at?: string
-          user_id: string
-          username?: string | null
-        }
-        Update: {
-          avatar_url?: string | null
-          bio?: string | null
-          created_at?: string
-          full_name?: string | null
-          id?: string
-          updated_at?: string
-          user_id?: string
-          username?: string | null
-        }
-        Relationships: []
-      }
-      reading_cards: {
-        Row: {
-          card_order: number | null
-          content: string
-          created_at: string
-          document_id: string
-          highlight_text: string | null
-          id: string
-          image_url: string | null
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          card_order?: number | null
-          content: string
-          created_at?: string
-          document_id: string
-          highlight_text?: string | null
-          id?: string
-          image_url?: string | null
-          title: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          card_order?: number | null
-          content?: string
-          created_at?: string
-          document_id?: string
-          highlight_text?: string | null
-          id?: string
-          image_url?: string | null
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "reading_cards_document_id_fkey"
-            columns: ["document_id"]
-            isOneToOne: false
-            referencedRelation: "documents"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      saved_cards: {
-        Row: {
-          created_at: string
-          id: string
-          reading_card_id: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          reading_card_id: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          reading_card_id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "saved_cards_reading_card_id_fkey"
-            columns: ["reading_card_id"]
-            isOneToOne: false
-            referencedRelation: "reading_cards"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
+      [_ in never]: never
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      generate_unique_slug: {
-        Args: { base_title: string }
-        Returns: string
-      }
+      [_ in never]: never
     }
     Enums: {
       [_ in never]: never
