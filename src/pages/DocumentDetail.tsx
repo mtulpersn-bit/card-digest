@@ -24,11 +24,9 @@ interface DocumentData {
   read_count: number;
   created_at: string;
   user_id: string;
-  cover_image?: string;
   file_url?: string;
   profiles: {
-    full_name: string;
-    username: string;
+    display_name: string;
     avatar_url: string;
   };
   reading_cards: Array<{
@@ -79,7 +77,6 @@ const DocumentDetail = () => {
           read_count,
           created_at,
           user_id,
-          cover_image,
           file_url,
           reading_cards (
             id,
@@ -101,8 +98,8 @@ const DocumentDetail = () => {
       // Fetch the author's profile
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, username, avatar_url')
-        .eq('user_id', docData.user_id)
+        .select('id, display_name, avatar_url')
+        .eq('id', docData.user_id)
         .single();
 
       if (profileError) {
@@ -112,8 +109,7 @@ const DocumentDetail = () => {
       const documentWithProfile = {
         ...docData,
         profiles: profile || {
-          full_name: 'Anonim Kullanıcı',
-          username: 'anonymous',
+          display_name: 'Anonim Kullanıcı',
           avatar_url: null
         },
         reading_cards: docData.reading_cards?.sort((a, b) => a.card_order - b.card_order) || []
@@ -276,7 +272,7 @@ const DocumentDetail = () => {
               </Avatar>
               <div className="flex-1">
                 <p className="font-medium text-foreground">
-                  {document.profiles?.full_name || 'Anonim Kullanıcı'}
+                  {document.profiles?.display_name || 'Anonim Kullanıcı'}
                 </p>
                 <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                   <div className="flex items-center space-x-1">

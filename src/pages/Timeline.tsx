@@ -18,12 +18,11 @@ interface ReadingCard {
   title: string;
   content: string;
   image_url?: string;
-  highlight_text: string | null;
   created_at: string;
   document_id: string;
+  user_id: string;
   profiles: {
-    full_name: string;
-    username: string;
+    display_name: string;
     avatar_url: string;
   };
   documents: {
@@ -56,7 +55,6 @@ const Timeline = () => {
           title,
           content,
           image_url,
-          highlight_text,
           created_at,
           document_id,
           user_id,
@@ -76,15 +74,14 @@ const Timeline = () => {
       const cardUserIds = [...new Set(allCards?.map(card => card.user_id) || [])];
       const { data: cardProfiles } = await supabase
         .from('profiles')
-        .select('user_id, full_name, username, avatar_url')
-        .in('user_id', cardUserIds);
+        .select('id, display_name, avatar_url')
+        .in('id', cardUserIds);
 
       // Combine cards with profiles
       const cardsWithProfiles = allCards?.map(card => ({
         ...card,
-        profiles: cardProfiles?.find(p => p.user_id === card.user_id) || {
-          full_name: 'Anonim Kullanıcı',
-          username: 'anonymous',
+        profiles: cardProfiles?.find(p => p.id === card.user_id) || {
+          display_name: 'Anonim Kullanıcı',
           avatar_url: null
         }
       })) || [];
@@ -97,7 +94,6 @@ const Timeline = () => {
           title,
           content,
           image_url,
-          highlight_text,
           created_at,
           document_id,
           user_id,
@@ -114,15 +110,14 @@ const Timeline = () => {
       // Get user's profile
       const { data: userProfile } = await supabase
         .from('profiles')
-        .select('user_id, full_name, username, avatar_url')
-        .eq('user_id', user.id)
+        .select('id, display_name, avatar_url')
+        .eq('id', user.id)
         .single();
 
       const personalCardsWithProfile = personalCards?.map(card => ({
         ...card,
         profiles: userProfile || {
-          full_name: 'Anonim Kullanıcı',
-          username: 'anonymous',
+          display_name: 'Anonim Kullanıcı',
           avatar_url: null
         }
       })) || [];
@@ -200,7 +195,7 @@ const Timeline = () => {
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground">
-                  {card.profiles?.full_name || 'Anonim Kullanıcı'}
+                  {card.profiles?.display_name || 'Anonim Kullanıcı'}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(card.created_at), { 

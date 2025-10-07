@@ -20,12 +20,11 @@ interface SavedCard {
     title: string;
     content: string;
     image_url?: string;
-    highlight_text: string | null;
     created_at: string;
     document_id: string;
+    user_id: string;
     profiles: {
-      full_name: string;
-      username: string;
+      display_name: string;
       avatar_url: string;
     };
     documents: {
@@ -59,7 +58,6 @@ const Saved = () => {
             title,
             content,
             image_url,
-            highlight_text,
             created_at,
             document_id,
             user_id,
@@ -78,17 +76,16 @@ const Saved = () => {
       const cardUserIds = [...new Set(data?.map(item => item.reading_cards.user_id) || [])];
       const { data: cardProfiles } = await supabase
         .from('profiles')
-        .select('user_id, full_name, username, avatar_url')
-        .in('user_id', cardUserIds);
+        .select('id, display_name, avatar_url')
+        .in('id', cardUserIds);
 
       // Combine saved cards with profiles
       const savedCardsWithProfiles = data?.map(savedCard => ({
         ...savedCard,
         reading_cards: {
           ...savedCard.reading_cards,
-          profiles: cardProfiles?.find(p => p.user_id === savedCard.reading_cards.user_id) || {
-            full_name: 'Anonim Kullanıcı',
-            username: 'anonymous',
+          profiles: cardProfiles?.find(p => p.id === savedCard.reading_cards.user_id) || {
+            display_name: 'Anonim Kullanıcı',
             avatar_url: null
           }
         }
@@ -145,7 +142,7 @@ const Saved = () => {
               </Avatar>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-foreground">
-                  {card.profiles?.full_name || 'Anonim Kullanıcı'}
+                  {card.profiles?.display_name || 'Anonim Kullanıcı'}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   Kaydedildi: {formatDistanceToNow(new Date(savedCard.created_at), { 

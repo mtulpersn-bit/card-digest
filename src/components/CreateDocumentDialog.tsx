@@ -32,7 +32,7 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
     try {
       // Generate slug using the database function
       const { data: slugData, error: slugError } = await supabase
-        .rpc('generate_unique_slug', { base_title: title });
+        .rpc('generate_unique_slug', { input_title: title });
 
       if (slugError) throw slugError;
 
@@ -87,7 +87,7 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
 
       // Generate slug using the database function
       const { data: slugData, error: slugError } = await supabase
-        .rpc('generate_unique_slug', { base_title: title });
+        .rpc('generate_unique_slug', { input_title: title });
 
       if (slugError) throw slugError;
 

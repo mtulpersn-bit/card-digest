@@ -19,9 +19,9 @@ interface Document {
   slug: string;
   read_count: number;
   created_at: string;
+  user_id: string;
   profiles: {
-    full_name: string;
-    username: string;
+    display_name: string;
     avatar_url: string;
   };
   reading_cards: Array<{ id: string }>;
@@ -62,17 +62,16 @@ const Documents = () => {
       const userIds = [...new Set(allDocs?.map(doc => doc.user_id) || [])];
       const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('user_id, full_name, username, avatar_url')
-        .in('user_id', userIds);
+        .select('id, display_name, avatar_url')
+        .in('id', userIds);
 
       if (profilesError) throw profilesError;
 
       // Combine documents with profiles
       const docsWithProfiles = allDocs?.map(doc => ({
         ...doc,
-        profiles: profiles?.find(p => p.user_id === doc.user_id) || {
-          full_name: 'Anonim Kullanıcı',
-          username: 'anonymous',
+        profiles: profiles?.find(p => p.id === doc.user_id) || {
+          display_name: 'Anonim Kullanıcı',
           avatar_url: null
         }
       })) || [];
@@ -98,15 +97,14 @@ const Documents = () => {
       // Get user's profile
       const { data: userProfile } = await supabase
         .from('profiles')
-        .select('user_id, full_name, username, avatar_url')
-        .eq('user_id', user.id)
+        .select('id, display_name, avatar_url')
+        .eq('id', user.id)
         .single();
 
       const personalDocsWithProfile = personalDocs?.map(doc => ({
         ...doc,
         profiles: userProfile || {
-          full_name: 'Anonim Kullanıcı',
-          username: 'anonymous',
+          display_name: 'Anonim Kullanıcı',
           avatar_url: null
         }
       })) || [];
@@ -134,7 +132,7 @@ const Documents = () => {
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium text-foreground">
-              {document.profiles?.full_name || 'Anonim Kullanıcı'}
+              {document.profiles?.display_name || 'Anonim Kullanıcı'}
             </p>
             <p className="text-xs text-muted-foreground">
               {formatDistanceToNow(new Date(document.created_at), { 
