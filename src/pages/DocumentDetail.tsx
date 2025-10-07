@@ -13,7 +13,6 @@ import { tr } from 'date-fns/locale';
 import Header from '@/components/Header';
 import { useToast } from '@/hooks/use-toast';
 import CreateReadingCardDialog from '@/components/CreateReadingCardDialog';
-import CreateAIReadingCardDialog from '@/components/CreateAIReadingCardDialog';
 
 interface DocumentData {
   id: string;
@@ -306,7 +305,7 @@ const DocumentDetail = () => {
               </div>
               
               {(user?.id === document.user_id || loading) && (
-                <div className="ml-6 space-y-2">
+                <div className="ml-6">
                   <Dialog>
                     <DialogTrigger asChild>
                       <Button variant="outline" size="sm" disabled={loading}>
@@ -321,7 +320,7 @@ const DocumentDetail = () => {
                       <div className="mt-4">
                         {document.file_url ? (
                           <iframe
-                            src={`https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(`https://mprwhgypstsjojmmzubz.supabase.co/storage/v1/object/public/documents/${document.file_url}`)}`}
+                            src={`https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(`https://ndfcycalqzjtgwkldafi.supabase.co/storage/v1/object/public/documents/${document.file_url}`)}`}
                             className="w-full h-[70vh] border rounded-lg"
                             title={document.title}
                           />
@@ -335,16 +334,6 @@ const DocumentDetail = () => {
                       </div>
                     </DialogContent>
                   </Dialog>
-                  <CreateReadingCardDialog
-                    documentId={document.id}
-                    onCardCreated={fetchDocument}
-                  />
-                  <CreateAIReadingCardDialog
-                    documentId={document.id}
-                    documentContent={document.content}
-                    fileUrl={document.file_url}
-                    onCardCreated={fetchDocument}
-                  />
                 </div>
               )}
             </div>
@@ -353,11 +342,21 @@ const DocumentDetail = () => {
 
           {/* Reading Cards */}
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-foreground flex items-center space-x-2">
-              <BookOpen className="w-6 h-6" />
-              <span>Okuma Kartları</span>
-              <Badge variant="secondary">{document.reading_cards.length}</Badge>
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-foreground flex items-center space-x-2">
+                <BookOpen className="w-6 h-6" />
+                <span>Okuma Kartları</span>
+                <Badge variant="secondary">{document.reading_cards.length}</Badge>
+              </h2>
+              {(user?.id === document.user_id || loading) && (
+                <CreateReadingCardDialog
+                  documentId={document.id}
+                  documentContent={document.content}
+                  fileUrl={document.file_url}
+                  onCardCreated={fetchDocument}
+                />
+              )}
+            </div>
 
             {document.reading_cards.length === 0 ? (
               <Card className="bg-gradient-card border-0">
