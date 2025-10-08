@@ -26,7 +26,16 @@ serve(async (req) => {
       });
     }
 
+    const contentLength = documentContent.length;
     console.log('Generating reading cards with OpenAI for document:', documentId);
+    console.log('Content length:', contentLength, 'characters');
+
+    if (contentLength < 50) {
+      return new Response(JSON.stringify({ error: 'Belge içeriği çok kısa. En az 50 karakter gerekli.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     const systemPrompt = `Sen bir PDF okuma asistanısın. Amacın, okuyucunun okuma alışkanlığı kazanması ve PDF içeriğini kolayca takip edebilmesi için "okuma kartları" oluşturmak. Kurallar:
 

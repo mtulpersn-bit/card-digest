@@ -24,6 +24,7 @@ const CreateReadingCardDialog = ({ documentId, documentContent, fileUrl, onCardC
   const [isOpen, setIsOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isAILoading, setIsAILoading] = useState(false);
+  const [ocrProgress, setOcrProgress] = useState<string>('');
   const [formData, setFormData] = useState({
     title: '',
     content: '',
@@ -82,20 +83,61 @@ const CreateReadingCardDialog = ({ documentId, documentContent, fileUrl, onCardC
     if (!user) return;
 
     setIsAILoading(true);
+    setOcrProgress('');
+    
     try {
-      let contentToAnalyze = documentContent;
+      let contentToAnalyze = '';
 
+      // file_url var mı kontrol et
       if (fileUrl) {
+        // PDF varsa OCR ile metne dönüştür
+        setOcrProgress('PDF analiz ediliyor...');
         try {
           const publicUrl = `https://ndfcycalqzjtgwkldafi.supabase.co/storage/v1/object/public/documents/${fileUrl}`;
-          const extractedText = await extractTextFromPdf(publicUrl);
-          if (extractedText) {
+          const extractedText = await extractTextFromPdf(publicUrl, (progress) => {
+            if (progress.stage === 'loading') {
+              setOcrProgress('PDF yükleniyor...');
+            } else if (progress.stage === 'render') {
+              setOcrProgress(`Sayfa ${progress.page}/${progress.totalPages} render ediliyor...`);
+            } else if (progress.stage === 'ocr') {
+              const percent = Math.round((progress.progress || 0) * 100);
+              setOcrProgress(`Sayfa ${progress.page}/${progress.totalPages} analiz ediliyor... ${percent}%`);
+            }
+          });
+          
+          if (extractedText && extractedText.length > 10) {
             contentToAnalyze = extractedText;
+            setOcrProgress('PDF başarıyla analiz edildi!');
+          } else {
+            throw new Error('PDF\'den yeterli metin çıkarılamadı');
           }
         } catch (ocrError) {
-          console.error('OCR failed, using original content:', ocrError);
+          console.error('OCR failed:', ocrError);
+          toast({
+            title: "PDF Analiz Hatası",
+            description: "PDF dosyası analiz edilemedi. Lütfen metin içeren bir PDF yükleyin.",
+            variant: "destructive",
+          });
+          setIsAILoading(false);
+          setOcrProgress('');
+          return;
         }
+      } else if (documentContent && documentContent.trim().length > 10) {
+        // file_url null ise content kullan
+        contentToAnalyze = documentContent.trim();
+        setOcrProgress('Belge içeriği hazırlanıyor...');
+      } else {
+        // Her ikisi de yoksa hata ver
+        toast({
+          title: "İçerik Bulunamadı",
+          description: "Belge içeriği veya PDF dosyası bulunamadı.",
+          variant: "destructive",
+        });
+        setIsAILoading(false);
+        return;
       }
+
+      setOcrProgress('AI kartları oluşturuyor...');
 
       const { data, error } = await supabase.functions.invoke('generate-reading-cards-openai', {
         body: {
@@ -113,17 +155,21 @@ const CreateReadingCardDialog = ({ documentId, documentContent, fileUrl, onCardC
           description: `${data.cardsCreated} okuma kartı AI tarafından oluşturuldu.`,
         });
         setIsOpen(false);
+        setOcrProgress('');
         onCardCreated();
+      } else if (data?.error) {
+        throw new Error(data.error);
       }
     } catch (error) {
       console.error('Error generating AI cards:', error);
       toast({
         title: "Hata",
-        description: "AI kartları oluşturulurken bir hata oluştu.",
+        description: error instanceof Error ? error.message : "AI kartları oluşturulurken bir hata oluştu.",
         variant: "destructive",
       });
     } finally {
       setIsAILoading(false);
+      setOcrProgress('');
     }
   };
 
@@ -208,9 +254,15 @@ const CreateReadingCardDialog = ({ documentId, documentContent, fileUrl, onCardC
                 <h4 className="font-semibold text-sm mb-2">AI nasıl çalışır?</h4>
                 <p className="text-sm text-muted-foreground">
                   AI, belge içeriğinizi analiz ederek otomatik olarak okuma kartları oluşturur. 
-                  Metin konusuna ve bütünlüğe göre anlamlı parçalara ayrılır ve her bölüm için bir kart oluşturulur.
+                  {fileUrl ? 'PDF dosyanız OCR ile metne dönüştürülür ve' : 'Metin içeriğiniz'} konusuna ve bütünlüğe göre anlamlı parçalara ayrılır.
                 </p>
               </div>
+
+              {ocrProgress && (
+                <div className="bg-primary/10 p-3 rounded-lg">
+                  <p className="text-sm text-primary font-medium">{ocrProgress}</p>
+                </div>
+              )}
 
               <div className="flex justify-end space-x-2 pt-4">
                 <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
