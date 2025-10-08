@@ -37,6 +37,43 @@ serve(async (req) => {
       });
     }
 
+    // Initialize Supabase client
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Check if user is admin
+    const { data: isAdminData } = await supabase.rpc('has_role', {
+      _user_id: userId,
+      _role: 'admin'
+    });
+    
+    const isAdmin = isAdminData === true;
+    console.log('User is admin:', isAdmin);
+
+    // If not admin, check daily token limit
+    if (!isAdmin) {
+      const DAILY_TOKEN_LIMIT = 100000;
+      const today = new Date().toISOString().split('T')[0];
+
+      const { data: tokenUsageData } = await supabase
+        .from('token_usage')
+        .select('tokens_used')
+        .eq('user_id', userId)
+        .eq('usage_date', today)
+        .maybeSingle();
+
+      const currentUsage = tokenUsageData?.tokens_used || 0;
+      console.log('Current token usage:', currentUsage, 'of', DAILY_TOKEN_LIMIT);
+
+      if (currentUsage >= DAILY_TOKEN_LIMIT) {
+        return new Response(JSON.stringify({ 
+          error: 'Günlük token limitiniz doldu. Lütfen yarın tekrar deneyin veya admin olun.' 
+        }), {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
     const systemPrompt = `Sen bir PDF okuma asistanısın. Amacın, okuyucunun okuma alışkanlığı kazanması ve PDF içeriğini kolayca takip edebilmesi için "okuma kartları" oluşturmak. Kurallar:
 
 Bu belge içeriğini analiz ederek:
@@ -81,8 +118,33 @@ Bu belge içeriğini analiz ederek:
 
     const data = await response.json();
     const generatedText = data.choices[0].message.content;
+    const tokensUsed = data.usage?.total_tokens || 0;
 
     console.log('Generated text:', generatedText);
+    console.log('Tokens used:', tokensUsed);
+
+    // Track token usage (only for non-admin users)
+    if (!isAdmin && tokensUsed > 0) {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { error: tokenError } = await supabase
+        .from('token_usage')
+        .upsert({
+          user_id: userId,
+          usage_date: today,
+          tokens_used: supabase.raw(`COALESCE(tokens_used, 0) + ${tokensUsed}`),
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'user_id,usage_date',
+          ignoreDuplicates: false
+        });
+
+      if (tokenError) {
+        console.error('Error tracking token usage:', tokenError);
+      } else {
+        console.log('Token usage tracked successfully');
+      }
+    }
 
     // Parse the generated text to extract individual cards
     const cardSections = generatedText.split(/=== KART \d+ ===/);
@@ -94,8 +156,6 @@ Bu belge içeriğini analiz ederek:
     console.log(`Parsed ${cards.length} cards`);
 
     // Get the current max card_order for this document
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    
     const { data: maxOrderData } = await supabase
       .from('reading_cards')
       .select('card_order')
