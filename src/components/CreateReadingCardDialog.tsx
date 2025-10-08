@@ -93,8 +93,16 @@ const CreateReadingCardDialog = ({ documentId, documentContent, fileUrl, onCardC
         // PDF varsa OCR ile metne dönüştür
         setOcrProgress('PDF analiz ediliyor...');
         try {
-          const publicUrl = `https://ndfcycalqzjtgwkldafi.supabase.co/storage/v1/object/public/documents/${fileUrl}`;
-          const extractedText = await extractTextFromPdf(publicUrl, (progress) => {
+          // Storage'dan signed URL al
+          const { data: signedUrlData, error: urlError } = await supabase.storage
+            .from('documents')
+            .createSignedUrl(fileUrl, 3600); // 1 saat geçerli
+
+          if (urlError || !signedUrlData) {
+            throw new Error('PDF dosyasına erişim sağlanamadı');
+          }
+
+          const extractedText = await extractTextFromPdf(signedUrlData.signedUrl, (progress) => {
             if (progress.stage === 'loading') {
               setOcrProgress('PDF yükleniyor...');
             } else if (progress.stage === 'render') {
