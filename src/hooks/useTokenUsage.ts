@@ -11,7 +11,7 @@ interface TokenUsage {
 export const useTokenUsage = (userId: string | undefined) => {
   const [tokenUsage, setTokenUsage] = useState<TokenUsage>({
     used: 0,
-    limit: 100000,
+    limit: 30000,
     isAdmin: false,
     loading: true,
   });
@@ -43,7 +43,7 @@ export const useTokenUsage = (userId: string | undefined) => {
 
         setTokenUsage({
           used: usageData?.tokens_used || 0,
-          limit: 100000,
+          limit: 30000,
           isAdmin,
           loading: false,
         });
@@ -55,10 +55,31 @@ export const useTokenUsage = (userId: string | undefined) => {
 
     fetchTokenUsage();
 
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchTokenUsage, 30000);
+    // Refresh every 5 seconds for real-time updates
+    const interval = setInterval(fetchTokenUsage, 5000);
     return () => clearInterval(interval);
   }, [userId]);
+  
+  const refreshTokenUsage = async () => {
+    if (!userId) return;
+    
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const { data: usageData } = await supabase
+        .from('token_usage')
+        .select('tokens_used')
+        .eq('user_id', userId)
+        .eq('usage_date', today)
+        .maybeSingle();
+
+      setTokenUsage(prev => ({
+        ...prev,
+        used: usageData?.tokens_used || 0,
+      }));
+    } catch (error) {
+      console.error('Error refreshing token usage:', error);
+    }
+  };
 
   const submitAdminCode = async (code: string): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -90,5 +111,5 @@ export const useTokenUsage = (userId: string | undefined) => {
     }
   };
 
-  return { tokenUsage, submitAdminCode };
+  return { tokenUsage, submitAdminCode, refreshTokenUsage };
 };

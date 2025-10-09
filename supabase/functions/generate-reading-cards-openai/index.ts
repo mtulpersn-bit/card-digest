@@ -17,7 +17,7 @@ serve(async (req) => {
   }
 
   try {
-    const { documentContent, documentId, userId } = await req.json();
+    const { documentContent, documentId, userId, promptType, customPrompt, pageRange } = await req.json();
 
     if (!documentContent || !documentId || !userId) {
       return new Response(JSON.stringify({ error: 'Missing required parameters' }), {
@@ -51,7 +51,7 @@ serve(async (req) => {
 
     // If not admin, check daily token limit
     if (!isAdmin) {
-      const DAILY_TOKEN_LIMIT = 100000;
+      const DAILY_TOKEN_LIMIT = 30000;
       const today = new Date().toISOString().split('T')[0];
 
       const { data: tokenUsageData } = await supabase
@@ -66,7 +66,8 @@ serve(async (req) => {
 
       if (currentUsage >= DAILY_TOKEN_LIMIT) {
         return new Response(JSON.stringify({ 
-          error: 'Günlük token limitiniz doldu. Lütfen yarın tekrar deneyin veya admin olun.' 
+          error: 'Günlük token limitiniz doldu. Lütfen yarın tekrar deneyin veya admin olun.',
+          limitReached: true
         }), {
           status: 429,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -74,7 +75,36 @@ serve(async (req) => {
       }
     }
 
-    const systemPrompt = `Sen bir PDF okuma asistanısın. Amacın, okuyucunun okuma alışkanlığı kazanması ve PDF içeriğini kolayca takip edebilmesi için "okuma kartları" oluşturmak. Kurallar:
+    let systemPrompt = '';
+    
+    if (customPrompt && customPrompt.trim()) {
+      // Özel prompt kullan
+      systemPrompt = customPrompt.trim();
+    } else if (promptType === 'structured') {
+      // Yapılandırılmış prompt
+      systemPrompt = `Sen bir PDF okuma asistanısın. Amacın, okuyucunun okuma alışkanlığı kazanması ve PDF içeriğini kolayca takip edebilmesi için "okuma kartları" oluşturmak.
+
+Bu belge içeriğini analiz ederek:
+1. Metindeki ana başlıkları ve alt başlıkları belirle (yoksa metinden sapmadan kendi başlık ve alt başlıklarını oluştur)
+2. Metinleri alt başlıklara göre sınıflandır
+3. Her okuma kartına bir ana başlık, bir alt başlık ve ilgili metni yerleştir
+4. Bir ana başlık birden fazla okuma kartında olabilir
+5. Alt başlıklar okuma kartlarını sınıflandırır, her kartta ana başlık da yer almalı
+6. Her kartı "=== KART [NUMARA] ===" ile ayır
+
+Örnek format:
+=== KART 1 ===
+Ana Başlık: [Başlık]
+Alt Başlık: [Alt başlık]
+[Orijinal metin bölümü]
+
+=== KART 2 ===
+Ana Başlık: [Başlık]
+Alt Başlık: [Alt başlık]
+[Orijinal metin bölümü]`;
+    } else {
+      // Varsayılan prompt
+      systemPrompt = `Sen bir PDF okuma asistanısın. Amacın, okuyucunun okuma alışkanlığı kazanması ve PDF içeriğini kolayca takip edebilmesi için "okuma kartları" oluşturmak. Kurallar:
 
 Bu belge içeriğini analiz ederek:
 1. Metni konusuna ve bütünlüğe göre anlamlı parçalara ayır
@@ -90,6 +120,13 @@ Bu belge içeriğini analiz ederek:
 
 === KART 2 ===
 [Orijinal metin bölümü]`;
+    }
+    
+    // Sayfa aralığı varsa ekle
+    let finalContent = documentContent;
+    if (pageRange && pageRange !== 'all') {
+      systemPrompt += `\n\nÖNEMLİ: Sadece ${pageRange} sayfa aralığındaki içeriği analiz et.`;
+    }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -101,7 +138,7 @@ Bu belge içeriğini analiz ederek:
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: documentContent }
+          { role: 'user', content: finalContent }
         ],
         temperature: 0.7,
       }),
