@@ -127,22 +127,33 @@ Bu belge içeriğini analiz ederek:
     if (!isAdmin && tokensUsed > 0) {
       const today = new Date().toISOString().split('T')[0];
       
+      // Get current usage
+      const { data: currentUsageData } = await supabase
+        .from('token_usage')
+        .select('tokens_used')
+        .eq('user_id', userId)
+        .eq('usage_date', today)
+        .maybeSingle();
+
+      const currentTokens = currentUsageData?.tokens_used || 0;
+      const newTotal = currentTokens + tokensUsed;
+
+      // Upsert with new total
       const { error: tokenError } = await supabase
         .from('token_usage')
         .upsert({
           user_id: userId,
           usage_date: today,
-          tokens_used: supabase.raw(`COALESCE(tokens_used, 0) + ${tokensUsed}`),
+          tokens_used: newTotal,
           updated_at: new Date().toISOString()
         }, {
-          onConflict: 'user_id,usage_date',
-          ignoreDuplicates: false
+          onConflict: 'user_id,usage_date'
         });
 
       if (tokenError) {
         console.error('Error tracking token usage:', tokenError);
       } else {
-        console.log('Token usage tracked successfully');
+        console.log('Token usage tracked successfully:', newTotal);
       }
     }
 
