@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.generate-reading-cards-openai]
 verify_jwt = false
+
+[functions.ai-text-transform]
+verify_jwt = false

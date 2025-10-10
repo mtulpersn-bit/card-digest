@@ -53,6 +53,47 @@ export type Database = {
         }
         Relationships: []
       }
+      flashcards: {
+        Row: {
+          answer: string
+          card_order: number
+          created_at: string
+          document_id: string
+          id: string
+          question: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          answer: string
+          card_order?: number
+          created_at?: string
+          document_id: string
+          id?: string
+          question: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          answer?: string
+          card_order?: number
+          created_at?: string
+          document_id?: string
+          id?: string
+          question?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flashcards_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -76,6 +117,35 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      reading_card_likes: {
+        Row: {
+          created_at: string
+          id: string
+          reading_card_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          reading_card_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          reading_card_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reading_card_likes_reading_card_id_fkey"
+            columns: ["reading_card_id"]
+            isOneToOne: false
+            referencedRelation: "reading_cards"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       reading_cards: {
         Row: {

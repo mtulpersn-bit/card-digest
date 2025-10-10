@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Documents from "./pages/Documents";
 import DocumentDetail from "./pages/DocumentDetail";
+import PDFViewer from "./pages/PDFViewer";
 import Timeline from "./pages/Timeline";
 import Saved from "./pages/Saved";
 import NotFound from "./pages/NotFound";
@@ -53,6 +54,11 @@ const App = () => (
           <Route path="/document/:slug" element={
             <ProtectedRoute>
               <DocumentDetail />
+            </ProtectedRoute>
+          } />
+          <Route path="/pdf/:slug" element={
+            <ProtectedRoute>
+              <PDFViewer />
             </ProtectedRoute>
           } />
           <Route path="/timeline" element={

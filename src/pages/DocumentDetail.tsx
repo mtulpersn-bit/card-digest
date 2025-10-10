@@ -45,6 +45,8 @@ const DocumentDetail = () => {
   const [document, setDocument] = useState<DocumentData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [savedCards, setSavedCards] = useState<Set<string>>(new Set());
+  const [likedCards, setLikedCards] = useState<Set<string>>(new Set());
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
 
   // Debug logging
   console.log('Current user:', user);
@@ -57,6 +59,7 @@ const DocumentDetail = () => {
       fetchDocument();
       if (user) {
         fetchSavedCards();
+        fetchLikedCards();
       }
     }
   }, [slug, user]);
@@ -116,6 +119,21 @@ const DocumentDetail = () => {
 
       setDocument(documentWithProfile);
 
+      // Fetch like counts for all cards
+      if (docData.reading_cards && docData.reading_cards.length > 0) {
+        const cardIds = docData.reading_cards.map((card) => card.id);
+        const { data: likesData } = await supabase
+          .from('reading_card_likes')
+          .select('reading_card_id')
+          .in('reading_card_id', cardIds);
+
+        const counts: Record<string, number> = {};
+        likesData?.forEach((like) => {
+          counts[like.reading_card_id] = (counts[like.reading_card_id] || 0) + 1;
+        });
+        setLikeCounts(counts);
+      }
+
       // Increment read count
       if (user?.id !== docData.user_id) {
         await supabase
@@ -146,6 +164,107 @@ const DocumentDetail = () => {
     } catch (error) {
       console.error('Error fetching saved cards:', error);
     }
+  };
+
+  const fetchLikedCards = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('reading_card_likes')
+        .select('reading_card_id')
+        .eq('user_id', user.id);
+
+      if (!error && data) {
+        setLikedCards(new Set(data.map(item => item.reading_card_id)));
+      }
+    } catch (error) {
+      console.error('Error fetching liked cards:', error);
+    }
+  };
+
+  const toggleLikeCard = async (cardId: string) => {
+    if (!user) {
+      toast({
+        title: "Giriş gerekli",
+        description: "Kartları beğenmek için giriş yapmalısınız.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      if (likedCards.has(cardId)) {
+        const { error } = await supabase
+          .from('reading_card_likes')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('reading_card_id', cardId);
+
+        if (error) throw error;
+
+        setLikedCards(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(cardId);
+          return newSet;
+        });
+
+        setLikeCounts(prev => ({
+          ...prev,
+          [cardId]: Math.max(0, (prev[cardId] || 0) - 1)
+        }));
+      } else {
+        const { error } = await supabase
+          .from('reading_card_likes')
+          .insert({
+            user_id: user.id,
+            reading_card_id: cardId
+          });
+
+        if (error) throw error;
+
+        setLikedCards(prev => new Set([...prev, cardId]));
+
+        setLikeCounts(prev => ({
+          ...prev,
+          [cardId]: (prev[cardId] || 0) + 1
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      toast({
+        title: "Hata",
+        description: "Beğeni işlemi sırasında bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleShare = async (cardId: string, cardTitle: string) => {
+    const url = `${window.location.origin}/document/${document?.slug}#card-${cardId}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: cardTitle,
+          url: url,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name !== 'AbortError') {
+          copyToClipboard(url);
+        }
+      }
+    } else {
+      copyToClipboard(url);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Bağlantı kopyalandı",
+      description: "Kart bağlantısı panoya kopyalandı.",
+    });
   };
 
   const toggleSaveCard = async (cardId: string) => {
@@ -306,34 +425,15 @@ const DocumentDetail = () => {
               
               {(user?.id === document.user_id || loading) && (
                 <div className="ml-6">
-                  <Dialog>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm" disabled={loading}>
-                        <Eye className="w-4 h-4 mr-2" />
-                        Belgeyi Görüntüle
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>{document.title}</DialogTitle>
-                      </DialogHeader>
-                      <div className="mt-4">
-                        {document.file_url ? (
-                          <iframe
-                            src={`https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(`https://ndfcycalqzjtgwkldafi.supabase.co/storage/v1/object/public/documents/${document.file_url}`)}`}
-                            className="w-full h-[70vh] border rounded-lg"
-                            title={document.title}
-                          />
-                        ) : (
-                          <div className="prose prose-slate max-w-none">
-                            <p className="whitespace-pre-wrap text-foreground leading-relaxed">
-                              {document.content}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    disabled={loading || !document.file_url}
+                    onClick={() => navigate(`/pdf/${document.slug}`)}
+                  >
+                    <Eye className="w-4 h-4 mr-2" />
+                    Belgeyi Görüntüle
+                  </Button>
                 </div>
               )}
             </div>
@@ -387,11 +487,8 @@ const DocumentDetail = () => {
                               }}
                             />
                           </div>
-                          <div className="lg:w-2/3">
-                            <CardTitle className="text-2xl font-bold text-foreground flex items-center space-x-3 mb-4">
-                              <span className="w-10 h-10 bg-primary/15 text-primary rounded-full flex items-center justify-center text-lg font-bold">
-                                {index + 1}
-                              </span>
+                          <div className="lg:w-2/3" id={`card-${card.id}`}>
+                            <CardTitle className="text-2xl font-bold text-foreground mb-4">
                               <span className="leading-tight">{card.title}</span>
                             </CardTitle>
                             <div className="prose prose-slate max-w-none">
@@ -402,11 +499,8 @@ const DocumentDetail = () => {
                           </div>
                         </div>
                       ) : (
-                        <div className="mb-6">
-                          <CardTitle className="text-2xl font-bold text-foreground flex items-center space-x-3 mb-4">
-                            <span className="w-10 h-10 bg-primary/15 text-primary rounded-full flex items-center justify-center text-lg font-bold">
-                              {index + 1}
-                            </span>
+                        <div className="mb-6" id={`card-${card.id}`}>
+                          <CardTitle className="text-2xl font-bold text-foreground mb-4">
                             <span className="leading-tight">{card.title}</span>
                           </CardTitle>
                           <div className="prose prose-slate max-w-none">
@@ -420,11 +514,21 @@ const DocumentDetail = () => {
                       {/* Action buttons */}
                       <div className="flex items-center justify-between pt-4 border-t border-border/50">
                         <div className="flex items-center space-x-4">
-                          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
-                            <ThumbsUp className="w-4 h-4 mr-2" />
-                            Beğen
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className={`${likedCards.has(card.id) ? 'text-primary' : 'text-muted-foreground'} hover:text-primary`}
+                            onClick={() => toggleLikeCard(card.id)}
+                          >
+                            <ThumbsUp className={`w-4 h-4 mr-2 ${likedCards.has(card.id) ? 'fill-current' : ''}`} />
+                            Beğen {likeCounts[card.id] ? `(${likeCounts[card.id]})` : ''}
                           </Button>
-                          <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-muted-foreground hover:text-primary"
+                            onClick={() => handleShare(card.id, card.title)}
+                          >
                             <Share2 className="w-4 h-4 mr-2" />
                             Paylaş
                           </Button>

@@ -39,9 +39,14 @@ const Saved = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
+  const [likedCards, setLikedCards] = useState<Set<string>>(new Set());
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     fetchSavedCards();
+    if (user) {
+      fetchLikedCards();
+    }
   }, [user]);
 
   const fetchSavedCards = async () => {
@@ -92,11 +97,130 @@ const Saved = () => {
       })) || [];
 
       setSavedCards(savedCardsWithProfiles);
+
+      // Fetch like counts
+      if (data && data.length > 0) {
+        const cardIds = data.map(item => item.reading_cards.id);
+        const { data: likesData } = await supabase
+          .from('reading_card_likes')
+          .select('reading_card_id')
+          .in('reading_card_id', cardIds);
+
+        const counts: Record<string, number> = {};
+        likesData?.forEach((like) => {
+          counts[like.reading_card_id] = (counts[like.reading_card_id] || 0) + 1;
+        });
+        setLikeCounts(counts);
+      }
     } catch (error) {
       console.error('Error fetching saved cards:', error);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const fetchLikedCards = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('reading_card_likes')
+        .select('reading_card_id')
+        .eq('user_id', user.id);
+
+      if (!error && data) {
+        setLikedCards(new Set(data.map(item => item.reading_card_id)));
+      }
+    } catch (error) {
+      console.error('Error fetching liked cards:', error);
+    }
+  };
+
+  const toggleLikeCard = async (cardId: string) => {
+    if (!user) {
+      toast({
+        title: "Giriş gerekli",
+        description: "Kartları beğenmek için giriş yapmalısınız.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      if (likedCards.has(cardId)) {
+        const { error } = await supabase
+          .from('reading_card_likes')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('reading_card_id', cardId);
+
+        if (error) throw error;
+
+        setLikedCards(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(cardId);
+          return newSet;
+        });
+
+        setLikeCounts(prev => ({
+          ...prev,
+          [cardId]: Math.max(0, (prev[cardId] || 0) - 1)
+        }));
+      } else {
+        const { error } = await supabase
+          .from('reading_card_likes')
+          .insert({
+            user_id: user.id,
+            reading_card_id: cardId
+          });
+
+        if (error) throw error;
+
+        setLikedCards(prev => new Set([...prev, cardId]));
+
+        setLikeCounts(prev => ({
+          ...prev,
+          [cardId]: (prev[cardId] || 0) + 1
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+      toast({
+        title: "Hata",
+        description: "Beğeni işlemi sırasında bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleShare = async (cardId: string, cardTitle: string) => {
+    const card = savedCards.find(sc => sc.reading_cards.id === cardId);
+    if (!card) return;
+
+    const url = `${window.location.origin}/document/${card.reading_cards.documents?.slug}#card-${cardId}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: cardTitle,
+          url: url,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name !== 'AbortError') {
+          copyToClipboard(url);
+        }
+      }
+    } else {
+      copyToClipboard(url);
+    }
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: "Bağlantı kopyalandı",
+      description: "Kart bağlantısı panoya kopyalandı.",
+    });
   };
 
   const unsaveCard = async (savedCardId: string, readingCardId: string) => {
@@ -207,11 +331,21 @@ const Saved = () => {
           
           <div className="flex items-center justify-between pt-4 border-t border-border/50">
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
-                <ThumbsUp className="w-4 h-4 mr-2" />
-                Beğen
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className={`${likedCards.has(card.id) ? 'text-primary' : 'text-muted-foreground'} hover:text-primary`}
+                onClick={() => toggleLikeCard(card.id)}
+              >
+                <ThumbsUp className={`w-4 h-4 mr-2 ${likedCards.has(card.id) ? 'fill-current' : ''}`} />
+                Beğen {likeCounts[card.id] ? `(${likeCounts[card.id]})` : ''}
               </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-muted-foreground hover:text-primary"
+                onClick={() => handleShare(card.id, card.title)}
+              >
                 <Share2 className="w-4 h-4 mr-2" />
                 Paylaş
               </Button>
@@ -224,7 +358,7 @@ const Saved = () => {
                 {card.documents?.title}
               </Link>
               <Badge variant="secondary" className="text-xs">
-                Okuma Kartı
+                Kart {/* Card number removed */}
               </Badge>
               <p className="text-xs text-muted-foreground">
                 {formatDistanceToNow(new Date(card.created_at), { 
