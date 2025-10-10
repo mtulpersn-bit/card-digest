@@ -48,17 +48,6 @@ const PDFViewer = () => {
         return;
       }
 
-      // Check if user owns the document
-      if (docData.user_id !== user?.id) {
-        toast({
-          title: "Erişim Reddedildi",
-          description: "Bu belgeyi görüntüleme yetkiniz yok.",
-          variant: "destructive",
-        });
-        navigate('/documents');
-        return;
-      }
-
       setDocumentId(docData.id);
       setDocumentTitle(docData.title);
 
