@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,20 +8,15 @@ import Header from '@/components/Header';
 import { useToast } from '@/hooks/use-toast';
 import CreateFlashcardDialog from '@/components/CreateFlashcardDialog';
 import CreateReadingCardFromSelection from '@/components/CreateReadingCardFromSelection';
-import {
-  PdfLoader,
-  PdfHighlighter,
-  Highlight,
-  Popup,
-  AreaHighlight,
-} from 'react-pdf-highlighter';
-import type { IHighlight as PDFHighlight } from 'react-pdf-highlighter';
-import * as pdfjsLib from 'pdfjs-dist';
+import { Viewer, Worker, SpecialZoomLevel } from '@react-pdf-viewer/core';
+import { highlightPlugin, Trigger, type HighlightArea } from '@react-pdf-viewer/highlight';
+import '@react-pdf-viewer/core/lib/styles/index.css';
+import '@react-pdf-viewer/highlight/lib/styles/index.css';
 
-// Configure PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Use the matching pdfjs-dist version installed in the project
+const PDF_WORKER_URL = 'https://unpkg.com/pdfjs-dist@3.11.174/build/pdf.worker.min.js';
 
-type IHighlight = PDFHighlight;
+type ColoredArea = HighlightArea & { id: string; color: string };
 
 const PDFViewer = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -35,7 +30,7 @@ const PDFViewer = () => {
   const [selectedText, setSelectedText] = useState<string>('');
   const [showFlashcardDialog, setShowFlashcardDialog] = useState(false);
   const [showReadingCardDialog, setShowReadingCardDialog] = useState(false);
-  const [highlights, setHighlights] = useState<IHighlight[]>([]);
+  const [highlightAreas, setHighlightAreas] = useState<ColoredArea[]>([]);
   const [selectedColor, setSelectedColor] = useState<string>('#FFFF00');
 
   useEffect(() => {
@@ -56,9 +51,9 @@ const PDFViewer = () => {
 
       if (error || !docData || !docData.file_url) {
         toast({
-          title: "Hata",
-          description: "Belge bulunamadı veya PDF dosyası yok.",
-          variant: "destructive",
+          title: 'Hata',
+          description: 'Belge bulunamadı veya PDF dosyası yok.',
+          variant: 'destructive',
         });
         navigate('/documents');
         return;
@@ -67,7 +62,7 @@ const PDFViewer = () => {
       setDocumentId(docData.id);
       setDocumentTitle(docData.title);
 
-      // Get signed URL from storage
+      // Get signed URL from storage (bucket should be public for general access)
       const { data: signedUrlData, error: urlError } = await supabase.storage
         .from('documents')
         .createSignedUrl(docData.file_url, 3600); // 1 hour
@@ -80,9 +75,9 @@ const PDFViewer = () => {
     } catch (error) {
       console.error('Error fetching document:', error);
       toast({
-        title: "Hata",
-        description: "Belge yüklenirken bir hata oluştu.",
-        variant: "destructive",
+        title: 'Hata',
+        description: 'Belge yüklenirken bir hata oluştu.',
+        variant: 'destructive',
       });
       navigate('/documents');
     } finally {
@@ -90,15 +85,79 @@ const PDFViewer = () => {
     }
   };
 
-  const addHighlight = (highlight: IHighlight) => {
-    setHighlights([...highlights, highlight]);
-  };
-
-  const updateHighlight = (highlightId: string, position: any, content: any) => {
-    setHighlights(
-      highlights.map((h) => (h.id === highlightId ? { ...h, position, content } : h))
-    );
-  };
+  const highlightPluginInstance = highlightPlugin({
+    trigger: Trigger.TextSelection,
+    renderHighlightTarget: (props) => (
+      <div className="bg-card border border-border rounded-lg shadow-xl p-3 flex flex-col gap-2">
+        <div className="flex gap-2 items-center">
+          <span className="text-xs text-muted-foreground">Renk:</span>
+          {['#FFFF00', '#FF6B6B', '#4ECDC4', '#95E1D3', '#C7CEEA'].map((color) => (
+            <button
+              key={color}
+              className="w-6 h-6 rounded-full border-2 border-border hover:scale-110 transition-transform"
+              style={{ backgroundColor: color }}
+              onClick={() => setSelectedColor(color)}
+            />
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => {
+              setSelectedText(props.selectedText || '');
+              setShowFlashcardDialog(true);
+              props.cancel();
+            }}
+          >
+            Flashcard Oluştur
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              setSelectedText(props.selectedText || '');
+              setShowReadingCardDialog(true);
+              props.cancel();
+            }}
+          >
+            Okuma Kartı Oluştur
+          </Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              const newAreas = props.highlightAreas.map((a, idx) => ({
+                ...a,
+                id: `${Date.now()}-${idx}`,
+                color: selectedColor,
+              }));
+              setHighlightAreas((prev) => [...prev, ...newAreas]);
+              props.cancel();
+            }}
+          >
+            Vurgula
+          </Button>
+        </div>
+      </div>
+    ),
+    renderHighlights: ({ pageIndex, rotation, getCssProperties }) => (
+      <>
+        {highlightAreas
+          .filter((area) => area.pageIndex === pageIndex)
+          .map((area) => (
+            <div
+              key={area.id}
+              style={{
+                ...getCssProperties(area, rotation),
+                background: area.color,
+                opacity: 0.35,
+                borderRadius: 4,
+              }}
+            />
+          ))}
+      </>
+    ),
+  });
 
   if (isLoading) {
     return (
@@ -114,14 +173,10 @@ const PDFViewer = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
-      
+
       <div className="container mx-auto px-4 py-6">
         <div className="flex items-center justify-between mb-4">
-          <Button 
-            onClick={() => navigate(`/document/${slug}`)} 
-            variant="ghost" 
-            size="sm"
-          >
+          <Button onClick={() => navigate(`/document/${slug}`)} variant="ghost" size="sm">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Belgeye Dön
           </Button>
@@ -129,123 +184,24 @@ const PDFViewer = () => {
           <div className="w-24" />
         </div>
 
-        <div 
-          className="bg-card rounded-lg shadow-lg overflow-hidden" 
+        <div
+          className="bg-card rounded-lg shadow-lg overflow-hidden"
           style={{ height: 'calc(100vh - 200px)' }}
         >
-          {pdfUrl && (
-            <PdfLoader url={pdfUrl} beforeLoad={<div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
-              {(pdfDocument) => (
-                <PdfHighlighter
-                  pdfDocument={pdfDocument}
-                  enableAreaSelection={(event) => event.altKey}
-                  onScrollChange={() => {}}
-                  scrollRef={(scrollTo) => {}}
-                  onSelectionFinished={(
-                    position,
-                    content,
-                    hideTipAndSelection,
-                    transformSelection
-                  ) => (
-                    <div className="bg-card border border-border rounded-lg shadow-xl p-3 flex flex-col gap-2">
-                      <div className="flex gap-2 items-center">
-                        <span className="text-xs text-muted-foreground">Renk:</span>
-                        {['#FFFF00', '#FF6B6B', '#4ECDC4', '#95E1D3', '#C7CEEA'].map((color) => (
-                          <button
-                            key={color}
-                            className="w-6 h-6 rounded-full border-2 border-border hover:scale-110 transition-transform"
-                            style={{ backgroundColor: color }}
-                            onClick={() => setSelectedColor(color)}
-                          />
-                        ))}
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => {
-                            setSelectedText(content.text || '');
-                            setShowFlashcardDialog(true);
-                            hideTipAndSelection();
-                          }}
-                        >
-                          Flashcard Oluştur
-                        </Button>
-                        <Button
-                          size="sm"
-                          onClick={() => {
-                            setSelectedText(content.text || '');
-                            setShowReadingCardDialog(true);
-                            hideTipAndSelection();
-                          }}
-                        >
-                          Okuma Kartı Oluştur
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="secondary"
-                          onClick={() => {
-                            const highlight: IHighlight = {
-                              id: String(Date.now()),
-                              content,
-                              position,
-                              comment: {
-                                text: content.text || '',
-                                emoji: '📝',
-                              },
-                            };
-                            addHighlight(highlight);
-                            hideTipAndSelection();
-                          }}
-                          style={{ backgroundColor: selectedColor }}
-                        >
-                          Vurgula
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                  highlightTransform={(
-                    highlight,
-                    index,
-                    setTip,
-                    hideTip,
-                    viewportToScaled,
-                    screenshot,
-                    isScrolledTo
-                  ) => {
-                    const isTextHighlight = !highlight.content?.image;
-
-                    const component = isTextHighlight ? (
-                      <Highlight
-                        isScrolledTo={isScrolledTo}
-                        position={highlight.position}
-                        comment={highlight.comment}
-                      />
-                    ) : (
-                      <AreaHighlight
-                        isScrolledTo={isScrolledTo}
-                        highlight={highlight}
-                        onChange={() => {}}
-                      />
-                    );
-
-                    return (
-                      <Popup
-                        popupContent={<div />}
-                        onMouseOver={(popupContent) =>
-                          setTip(highlight, () => popupContent)
-                        }
-                        onMouseOut={hideTip}
-                        key={index}
-                      >
-                        {component}
-                      </Popup>
-                    );
-                  }}
-                  highlights={highlights}
+          {pdfUrl ? (
+            <Worker workerUrl={PDF_WORKER_URL}>
+              <div className="h-full">
+                <Viewer
+                  fileUrl={pdfUrl}
+                  plugins={[highlightPluginInstance]}
+                  defaultScale={SpecialZoomLevel.PageWidth}
                 />
-              )}
-            </PdfLoader>
+              </div>
+            </Worker>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
           )}
         </div>
 
