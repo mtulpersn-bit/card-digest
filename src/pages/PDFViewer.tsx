@@ -16,6 +16,10 @@ import {
   AreaHighlight,
 } from 'react-pdf-highlighter';
 import type { IHighlight as PDFHighlight } from 'react-pdf-highlighter';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure PDF.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 type IHighlight = PDFHighlight;
 
