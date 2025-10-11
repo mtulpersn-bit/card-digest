@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +8,16 @@ import Header from '@/components/Header';
 import { useToast } from '@/hooks/use-toast';
 import CreateFlashcardDialog from '@/components/CreateFlashcardDialog';
 import CreateReadingCardFromSelection from '@/components/CreateReadingCardFromSelection';
+import {
+  PdfLoader,
+  PdfHighlighter,
+  Highlight,
+  Popup,
+  AreaHighlight,
+} from 'react-pdf-highlighter';
+import type { IHighlight as PDFHighlight } from 'react-pdf-highlighter';
+
+type IHighlight = PDFHighlight;
 
 const PDFViewer = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -21,6 +31,8 @@ const PDFViewer = () => {
   const [selectedText, setSelectedText] = useState<string>('');
   const [showFlashcardDialog, setShowFlashcardDialog] = useState(false);
   const [showReadingCardDialog, setShowReadingCardDialog] = useState(false);
+  const [highlights, setHighlights] = useState<IHighlight[]>([]);
+  const [selectedColor, setSelectedColor] = useState<string>('#FFFF00');
 
   useEffect(() => {
     if (slug) {
@@ -74,11 +86,14 @@ const PDFViewer = () => {
     }
   };
 
-  const handleTextSelection = () => {
-    const selection = window.getSelection();
-    if (selection && selection.toString().trim()) {
-      setSelectedText(selection.toString().trim());
-    }
+  const addHighlight = (highlight: IHighlight) => {
+    setHighlights([...highlights, highlight]);
+  };
+
+  const updateHighlight = (highlightId: string, position: any, content: any) => {
+    setHighlights(
+      highlights.map((h) => (h.id === highlightId ? { ...h, position, content } : h))
+    );
   };
 
   if (isLoading) {
@@ -113,44 +128,122 @@ const PDFViewer = () => {
         <div 
           className="bg-card rounded-lg shadow-lg overflow-hidden" 
           style={{ height: 'calc(100vh - 200px)' }}
-          onMouseUp={handleTextSelection}
         >
           {pdfUrl && (
-            <iframe
-              src={`https://mozilla.github.io/pdf.js/web/viewer.html?file=${encodeURIComponent(pdfUrl)}`}
-              className="w-full h-full border-0"
-              title={documentTitle}
-            />
+            <PdfLoader url={pdfUrl} beforeLoad={<div className="flex items-center justify-center h-full"><Loader2 className="w-8 h-8 animate-spin text-primary" /></div>}>
+              {(pdfDocument) => (
+                <PdfHighlighter
+                  pdfDocument={pdfDocument}
+                  enableAreaSelection={(event) => event.altKey}
+                  onScrollChange={() => {}}
+                  scrollRef={(scrollTo) => {}}
+                  onSelectionFinished={(
+                    position,
+                    content,
+                    hideTipAndSelection,
+                    transformSelection
+                  ) => (
+                    <div className="bg-card border border-border rounded-lg shadow-xl p-3 flex flex-col gap-2">
+                      <div className="flex gap-2 items-center">
+                        <span className="text-xs text-muted-foreground">Renk:</span>
+                        {['#FFFF00', '#FF6B6B', '#4ECDC4', '#95E1D3', '#C7CEEA'].map((color) => (
+                          <button
+                            key={color}
+                            className="w-6 h-6 rounded-full border-2 border-border hover:scale-110 transition-transform"
+                            style={{ backgroundColor: color }}
+                            onClick={() => setSelectedColor(color)}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedText(content.text || '');
+                            setShowFlashcardDialog(true);
+                            hideTipAndSelection();
+                          }}
+                        >
+                          Flashcard Oluştur
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setSelectedText(content.text || '');
+                            setShowReadingCardDialog(true);
+                            hideTipAndSelection();
+                          }}
+                        >
+                          Okuma Kartı Oluştur
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => {
+                            const highlight: IHighlight = {
+                              id: String(Date.now()),
+                              content,
+                              position,
+                              comment: {
+                                text: content.text || '',
+                                emoji: '📝',
+                              },
+                            };
+                            addHighlight(highlight);
+                            hideTipAndSelection();
+                          }}
+                          style={{ backgroundColor: selectedColor }}
+                        >
+                          Vurgula
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                  highlightTransform={(
+                    highlight,
+                    index,
+                    setTip,
+                    hideTip,
+                    viewportToScaled,
+                    screenshot,
+                    isScrolledTo
+                  ) => {
+                    const isTextHighlight = !highlight.content?.image;
+
+                    const component = isTextHighlight ? (
+                      <Highlight
+                        isScrolledTo={isScrolledTo}
+                        position={highlight.position}
+                        comment={highlight.comment}
+                      />
+                    ) : (
+                      <AreaHighlight
+                        isScrolledTo={isScrolledTo}
+                        highlight={highlight}
+                        onChange={() => {}}
+                      />
+                    );
+
+                    return (
+                      <Popup
+                        popupContent={<div />}
+                        onMouseOver={(popupContent) =>
+                          setTip(highlight, () => popupContent)
+                        }
+                        onMouseOut={hideTip}
+                        key={index}
+                      >
+                        {component}
+                      </Popup>
+                    );
+                  }}
+                  highlights={highlights}
+                />
+              )}
+            </PdfLoader>
           )}
         </div>
-
-        {selectedText && (
-          <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-card border border-border rounded-lg shadow-xl p-4 flex items-center gap-3 z-50">
-            <p className="text-sm text-muted-foreground max-w-md truncate">
-              Seçilen metin: "{selectedText.slice(0, 50)}..."
-            </p>
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setShowFlashcardDialog(true)}
-            >
-              Flashcard Oluştur
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => setShowReadingCardDialog(true)}
-            >
-              Okuma Kartı Oluştur
-            </Button>
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setSelectedText('')}
-            >
-              ✕
-            </Button>
-          </div>
-        )}
 
         <CreateFlashcardDialog
           documentId={documentId}
