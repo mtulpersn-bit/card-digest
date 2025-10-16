@@ -9,7 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import CreateFlashcardDialog from '@/components/CreateFlashcardDialog';
 import CreateReadingCardFromSelection from '@/components/CreateReadingCardFromSelection';
 import { Viewer, Worker, SpecialZoomLevel } from '@react-pdf-viewer/core';
-import { highlightPlugin, Trigger, type HighlightArea } from '@react-pdf-viewer/highlight';
+import { highlightPlugin, Trigger, type HighlightArea, type RenderHighlightTargetProps } from '@react-pdf-viewer/highlight';
 import '@react-pdf-viewer/core/lib/styles/index.css';
 import '@react-pdf-viewer/highlight/lib/styles/index.css';
 
@@ -85,22 +85,43 @@ const PDFViewer = () => {
     }
   };
 
-  const highlightPluginInstance = highlightPlugin({
-    trigger: Trigger.TextSelection,
-    renderHighlightTarget: (props) => (
-      <div className="bg-card border border-border rounded-lg shadow-xl p-3 flex flex-col gap-2 min-w-[300px]">
-        <div className="flex gap-2 items-center">
-          <span className="text-xs text-muted-foreground">Renk:</span>
-          {['#FFFF00', '#FF6B6B', '#4ECDC4', '#95E1D3', '#C7CEEA'].map((color) => (
-            <button
-              key={color}
-              className="w-6 h-6 rounded-full border-2 border-border hover:scale-110 transition-transform"
-              style={{ backgroundColor: color }}
-              onClick={() => setSelectedColor(color)}
-            />
-          ))}
-        </div>
-        <div className="flex flex-col gap-2">
+  const renderHighlightTarget = (props: RenderHighlightTargetProps) => {
+    return (
+      <div
+        style={{
+          background: 'hsl(var(--card))',
+          border: '1px solid hsl(var(--border))',
+          borderRadius: '8px',
+          padding: '12px',
+          position: 'absolute',
+          left: `${props.selectionRegion.left}%`,
+          top: `${props.selectionRegion.top + props.selectionRegion.height}%`,
+          zIndex: 9999,
+          minWidth: '300px',
+          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+        }}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
+            <span style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>Renk:</span>
+            {['#FFFF00', '#FF6B6B', '#4ECDC4', '#95E1D3', '#C7CEEA'].map((color) => (
+              <button
+                key={color}
+                style={{
+                  width: '24px',
+                  height: '24px',
+                  borderRadius: '50%',
+                  border: '2px solid hsl(var(--border))',
+                  backgroundColor: color,
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s',
+                }}
+                onClick={() => setSelectedColor(color)}
+                onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
+                onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
+              />
+            ))}
+          </div>
           <Button
             size="sm"
             variant="outline"
@@ -109,6 +130,7 @@ const PDFViewer = () => {
               setShowFlashcardDialog(true);
               props.cancel();
             }}
+            style={{ width: '100%' }}
           >
             Flashcard Oluştur
           </Button>
@@ -120,6 +142,7 @@ const PDFViewer = () => {
               setShowReadingCardDialog(true);
               props.cancel();
             }}
+            style={{ width: '100%' }}
           >
             Okuma Kartı Oluştur
           </Button>
@@ -135,12 +158,18 @@ const PDFViewer = () => {
               setHighlightAreas((prev) => [...prev, ...newAreas]);
               props.cancel();
             }}
+            style={{ width: '100%' }}
           >
             Vurgula
           </Button>
         </div>
       </div>
-    ),
+    );
+  };
+
+  const highlightPluginInstance = highlightPlugin({
+    trigger: Trigger.TextSelection,
+    renderHighlightTarget,
     renderHighlights: ({ pageIndex, rotation, getCssProperties }) => (
       <>
         {highlightAreas
