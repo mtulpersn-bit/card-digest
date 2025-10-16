@@ -91,65 +91,48 @@ const PDFViewer = () => {
         style={{
           background: 'hsl(var(--card))',
           border: '1px solid hsl(var(--border))',
-          borderRadius: '8px',
-          padding: '12px',
+          borderRadius: '6px',
+          padding: '8px',
           position: 'absolute',
           left: `${props.selectionRegion.left}%`,
           top: `${props.selectionRegion.top + props.selectionRegion.height}%`,
           zIndex: 9999,
-          minWidth: '300px',
-          boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+          minWidth: '200px',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
         }}
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '4px' }}>
-            <span style={{ fontSize: '12px', color: 'hsl(var(--muted-foreground))' }}>Renk:</span>
-            {['#FFFF00', '#FF6B6B', '#4ECDC4', '#95E1D3', '#C7CEEA'].map((color) => (
-              <button
-                key={color}
-                style={{
-                  width: '24px',
-                  height: '24px',
-                  borderRadius: '50%',
-                  border: '2px solid hsl(var(--border))',
-                  backgroundColor: color,
-                  cursor: 'pointer',
-                  transition: 'transform 0.2s',
-                }}
-                onClick={() => setSelectedColor(color)}
-                onMouseEnter={(e) => (e.currentTarget.style.transform = 'scale(1.1)')}
-                onMouseLeave={(e) => (e.currentTarget.style.transform = 'scale(1)')}
-              />
-            ))}
-          </div>
+        <div style={{ display: 'flex', gap: '4px' }}>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               setSelectedText(props.selectedText || '');
               setShowFlashcardDialog(true);
               props.cancel();
             }}
-            style={{ width: '100%' }}
+            className="flex-1 h-7 text-xs px-2"
           >
-            Flashcard Oluştur
+            Flashcard
           </Button>
           <Button
             size="sm"
             variant="outline"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               setSelectedText(props.selectedText || '');
               setShowReadingCardDialog(true);
               props.cancel();
             }}
-            style={{ width: '100%' }}
+            className="flex-1 h-7 text-xs px-2"
           >
-            Okuma Kartı Oluştur
+            Okuma Kartı
           </Button>
           <Button
             size="sm"
             variant="secondary"
-            onClick={() => {
+            onClick={(e) => {
+              e.stopPropagation();
               const newAreas = props.highlightAreas.map((a, idx) => ({
                 ...a,
                 id: `${Date.now()}-${idx}`,
@@ -158,7 +141,7 @@ const PDFViewer = () => {
               setHighlightAreas((prev) => [...prev, ...newAreas]);
               props.cancel();
             }}
-            style={{ width: '100%' }}
+            className="flex-1 h-7 text-xs px-2"
           >
             Vurgula
           </Button>

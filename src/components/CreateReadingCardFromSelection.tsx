@@ -154,58 +154,58 @@ const CreateReadingCardFromSelection = ({
                     <Sparkles className="w-4 h-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80">
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-sm">AI Dönüşüm Seçenekleri</h4>
-                    <div className="space-y-2">
+                <PopoverContent className="w-56">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-xs">AI Dönüşüm</h4>
+                    <div className="space-y-1">
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="w-full justify-start"
+                        className="w-full justify-start text-xs h-7"
                         onClick={() => handleAITransform('title', 'grammar')}
                         disabled={isAILoading || !title.trim()}
                       >
-                        {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
                         Grameri düzelt
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="w-full justify-start"
+                        className="w-full justify-start text-xs h-7"
                         onClick={() => handleAITransform('title', 'clarify')}
                         disabled={isAILoading || !title.trim()}
                       >
-                        {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                        Daha anlaşılır hale çevir
+                        {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+                        Daha anlaşılır
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="w-full justify-start"
+                        className="w-full justify-start text-xs h-7"
                         onClick={() => handleAITransform('title', 'generate-title')}
                         disabled={isAILoading || !content.trim()}
                       >
-                        {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                        Okuma metnine göre otomatik başlık oluştur
+                        {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+                        Otomatik başlık
                       </Button>
-                      <div className="space-y-2 pt-2 border-t">
+                      <div className="space-y-1 pt-1 border-t">
                         <Textarea
-                          placeholder="Kendi komutunuzu girin..."
+                          placeholder="Kendi komutunuz..."
                           value={titlePrompt}
                           onChange={(e) => setTitlePrompt(e.target.value)}
-                          className="min-h-[60px]"
+                          className="min-h-[45px] text-xs"
                         />
                         <Button
                           type="button"
                           size="sm"
-                          className="w-full"
+                          className="w-full text-xs h-7"
                           onClick={() => handleAITransform('title', 'custom')}
                           disabled={isAILoading || !titlePrompt.trim() || !title.trim()}
                         >
-                          {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                          {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
                           Uygula
                         </Button>
                       </div>
@@ -232,47 +232,47 @@ const CreateReadingCardFromSelection = ({
                     <Sparkles className="w-4 h-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80">
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-sm">AI Dönüşüm Seçenekleri</h4>
-                    <div className="space-y-2">
+                <PopoverContent className="w-56">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-xs">AI Dönüşüm</h4>
+                    <div className="space-y-1">
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="w-full justify-start"
+                        className="w-full justify-start text-xs h-7"
                         onClick={() => handleAITransform('content', 'grammar')}
                         disabled={isAILoading || !content.trim()}
                       >
-                        {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
                         Grameri düzelt
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="w-full justify-start"
+                        className="w-full justify-start text-xs h-7"
                         onClick={() => handleAITransform('content', 'clarify')}
                         disabled={isAILoading || !content.trim()}
                       >
-                        {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                        Daha anlaşılır hale çevir
+                        {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+                        Daha anlaşılır
                       </Button>
-                      <div className="space-y-2 pt-2 border-t">
+                      <div className="space-y-1 pt-1 border-t">
                         <Textarea
-                          placeholder="Kendi komutunuzu girin..."
+                          placeholder="Kendi komutunuz..."
                           value={contentPrompt}
                           onChange={(e) => setContentPrompt(e.target.value)}
-                          className="min-h-[60px]"
+                          className="min-h-[45px] text-xs"
                         />
                         <Button
                           type="button"
                           size="sm"
-                          className="w-full"
+                          className="w-full text-xs h-7"
                           onClick={() => handleAITransform('content', 'custom')}
                           disabled={isAILoading || !contentPrompt.trim() || !content.trim()}
                         >
-                          {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                          {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
                           Uygula
                         </Button>
                       </div>

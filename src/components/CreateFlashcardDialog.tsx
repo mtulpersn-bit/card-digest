@@ -149,58 +149,58 @@ const CreateFlashcardDialog = ({ documentId, selectedText, isOpen, onClose }: Cr
                     <Sparkles className="w-4 h-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80">
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-sm">AI Dönüşüm Seçenekleri</h4>
-                    <div className="space-y-2">
+                <PopoverContent className="w-56">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-xs">AI Dönüşüm</h4>
+                    <div className="space-y-1">
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="w-full justify-start"
+                        className="w-full justify-start text-xs h-7"
                         onClick={() => handleAITransform('question', 'grammar')}
                         disabled={isAILoading || !question.trim()}
                       >
-                        {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
                         Grameri düzelt
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="w-full justify-start"
+                        className="w-full justify-start text-xs h-7"
                         onClick={() => handleAITransform('question', 'clarify')}
                         disabled={isAILoading || !question.trim()}
                       >
-                        {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                        Daha anlaşılır hale çevir
+                        {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+                        Daha anlaşılır
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="w-full justify-start"
+                        className="w-full justify-start text-xs h-7"
                         onClick={() => handleAITransform('question', 'generate-question')}
                         disabled={isAILoading || !answer.trim()}
                       >
-                        {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                        Cevaba göre otomatik soru oluştur
+                        {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+                        Otomatik soru
                       </Button>
-                      <div className="space-y-2 pt-2 border-t">
+                      <div className="space-y-1 pt-1 border-t">
                         <Textarea
-                          placeholder="Kendi komutunuzu girin..."
+                          placeholder="Kendi komutunuz..."
                           value={questionPrompt}
                           onChange={(e) => setQuestionPrompt(e.target.value)}
-                          className="min-h-[60px]"
+                          className="min-h-[45px] text-xs"
                         />
                         <Button
                           type="button"
                           size="sm"
-                          className="w-full"
+                          className="w-full text-xs h-7"
                           onClick={() => handleAITransform('question', 'custom')}
                           disabled={isAILoading || !questionPrompt.trim() || !question.trim()}
                         >
-                          {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                          {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
                           Uygula
                         </Button>
                       </div>
@@ -227,47 +227,47 @@ const CreateFlashcardDialog = ({ documentId, selectedText, isOpen, onClose }: Cr
                     <Sparkles className="w-4 h-4" />
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80">
-                  <div className="space-y-3">
-                    <h4 className="font-medium text-sm">AI Dönüşüm Seçenekleri</h4>
-                    <div className="space-y-2">
+                <PopoverContent className="w-56">
+                  <div className="space-y-2">
+                    <h4 className="font-medium text-xs">AI Dönüşüm</h4>
+                    <div className="space-y-1">
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="w-full justify-start"
+                        className="w-full justify-start text-xs h-7"
                         onClick={() => handleAITransform('answer', 'grammar')}
                         disabled={isAILoading || !answer.trim()}
                       >
-                        {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
                         Grameri düzelt
                       </Button>
                       <Button
                         type="button"
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="w-full justify-start"
+                        className="w-full justify-start text-xs h-7"
                         onClick={() => handleAITransform('answer', 'clarify')}
                         disabled={isAILoading || !answer.trim()}
                       >
-                        {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                        Daha anlaşılır hale çevir
+                        {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
+                        Daha anlaşılır
                       </Button>
-                      <div className="space-y-2 pt-2 border-t">
+                      <div className="space-y-1 pt-1 border-t">
                         <Textarea
-                          placeholder="Kendi komutunuzu girin..."
+                          placeholder="Kendi komutunuz..."
                           value={answerPrompt}
                           onChange={(e) => setAnswerPrompt(e.target.value)}
-                          className="min-h-[60px]"
+                          className="min-h-[45px] text-xs"
                         />
                         <Button
                           type="button"
                           size="sm"
-                          className="w-full"
+                          className="w-full text-xs h-7"
                           onClick={() => handleAITransform('answer', 'custom')}
                           disabled={isAILoading || !answerPrompt.trim() || !answer.trim()}
                         >
-                          {isAILoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                          {isAILoading ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
                           Uygula
                         </Button>
                       </div>
