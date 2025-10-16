@@ -88,7 +88,7 @@ const PDFViewer = () => {
   const highlightPluginInstance = highlightPlugin({
     trigger: Trigger.TextSelection,
     renderHighlightTarget: (props) => (
-      <div className="bg-card border border-border rounded-lg shadow-xl p-3 flex flex-col gap-2">
+      <div className="bg-card border border-border rounded-lg shadow-xl p-3 flex flex-col gap-2 min-w-[300px]">
         <div className="flex gap-2 items-center">
           <span className="text-xs text-muted-foreground">Renk:</span>
           {['#FFFF00', '#FF6B6B', '#4ECDC4', '#95E1D3', '#C7CEEA'].map((color) => (
@@ -100,7 +100,7 @@ const PDFViewer = () => {
             />
           ))}
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           <Button
             size="sm"
             variant="outline"
@@ -114,6 +114,7 @@ const PDFViewer = () => {
           </Button>
           <Button
             size="sm"
+            variant="outline"
             onClick={() => {
               setSelectedText(props.selectedText || '');
               setShowReadingCardDialog(true);

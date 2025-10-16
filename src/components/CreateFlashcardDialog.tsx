@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -21,11 +21,20 @@ const CreateFlashcardDialog = ({ documentId, selectedText, isOpen, onClose }: Cr
   const { user } = useAuth();
   const { toast } = useToast();
   const [question, setQuestion] = useState('');
-  const [answer, setAnswer] = useState(selectedText);
+  const [answer, setAnswer] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [questionPrompt, setQuestionPrompt] = useState('');
   const [answerPrompt, setAnswerPrompt] = useState('');
   const [isAILoading, setIsAILoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen && selectedText) {
+      setAnswer(selectedText);
+      setQuestion('');
+      setQuestionPrompt('');
+      setAnswerPrompt('');
+    }
+  }, [isOpen, selectedText]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
