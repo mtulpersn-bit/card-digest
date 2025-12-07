@@ -3,9 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { BookOpen, User, BookmarkX, ExternalLink, Bookmark, ThumbsUp, Share2 } from 'lucide-react';
+import { BookOpen, User, BookmarkX, ExternalLink, Bookmark, ThumbsUp, Share2, Trash2, Layers } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { useToast } from '@/components/ui/use-toast';
@@ -34,16 +35,32 @@ interface SavedCard {
   };
 }
 
+interface Flashcard {
+  id: string;
+  question: string;
+  answer: string;
+  created_at: string;
+  document_id: string;
+  documents: {
+    title: string;
+    slug: string;
+  };
+}
+
 const Saved = () => {
   const [savedCards, setSavedCards] = useState<SavedCard[]>([]);
+  const [flashcards, setFlashcards] = useState<Flashcard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isFlashcardsLoading, setIsFlashcardsLoading] = useState(true);
   const { user } = useAuth();
   const { toast } = useToast();
   const [likedCards, setLikedCards] = useState<Set<string>>(new Set());
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [showAnswer, setShowAnswer] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     fetchSavedCards();
+    fetchFlashcards();
     if (user) {
       fetchLikedCards();
     }
@@ -77,14 +94,12 @@ const Saved = () => {
 
       if (error) throw error;
 
-      // Fetch profiles for the reading cards
       const cardUserIds = [...new Set(data?.map(item => item.reading_cards.user_id) || [])];
       const { data: cardProfiles } = await supabase
         .from('profiles')
         .select('id, display_name, avatar_url')
         .in('id', cardUserIds);
 
-      // Combine saved cards with profiles
       const savedCardsWithProfiles = data?.map(savedCard => ({
         ...savedCard,
         reading_cards: {
@@ -98,7 +113,6 @@ const Saved = () => {
 
       setSavedCards(savedCardsWithProfiles);
 
-      // Fetch like counts
       if (data && data.length > 0) {
         const cardIds = data.map(item => item.reading_cards.id);
         const { data: likesData } = await supabase
@@ -116,6 +130,35 @@ const Saved = () => {
       console.error('Error fetching saved cards:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const fetchFlashcards = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('flashcards')
+        .select(`
+          id,
+          question,
+          answer,
+          created_at,
+          document_id,
+          documents (
+            title,
+            slug
+          )
+        `)
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setFlashcards(data || []);
+    } catch (error) {
+      console.error('Error fetching flashcards:', error);
+    } finally {
+      setIsFlashcardsLoading(false);
     }
   };
 
@@ -193,37 +236,36 @@ const Saved = () => {
     }
   };
 
-  const handleShare = async (cardId: string, cardTitle: string) => {
-    const card = savedCards.find(sc => sc.reading_cards.id === cardId);
-    if (!card) return;
-
-    const url = `${window.location.origin}/document/${card.reading_cards.documents?.slug}#card-${cardId}`;
+  const handleShare = async (cardId: string, cardTitle: string, cardContent: string, slug?: string) => {
+    const url = `${window.location.origin}/document/${slug}#card-${cardId}`;
+    const shareText = `${cardTitle}\n\n${cardContent}\n\n${url}`;
     
     if (navigator.share) {
       try {
         await navigator.share({
           title: cardTitle,
+          text: cardContent,
           url: url,
         });
       } catch (error) {
         if (error instanceof Error && error.name !== 'AbortError') {
-          copyToClipboard(url);
+          copyToClipboard(shareText);
         }
       }
     } else {
-      copyToClipboard(url);
+      copyToClipboard(shareText);
     }
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
-      title: "Bağlantı kopyalandı",
-      description: "Kart bağlantısı panoya kopyalandı.",
+      title: "İçerik kopyalandı",
+      description: "Kart içeriği panoya kopyalandı.",
     });
   };
 
-  const unsaveCard = async (savedCardId: string, readingCardId: string) => {
+  const unsaveCard = async (savedCardId: string) => {
     if (!user) return;
 
     try {
@@ -234,7 +276,6 @@ const Saved = () => {
 
       if (error) throw error;
 
-      // Update local state
       setSavedCards(prev => prev.filter(card => card.id !== savedCardId));
 
       toast({
@@ -250,8 +291,48 @@ const Saved = () => {
     }
   };
 
+  const deleteFlashcard = async (flashcardId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('flashcards')
+        .delete()
+        .eq('id', flashcardId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      setFlashcards(prev => prev.filter(card => card.id !== flashcardId));
+
+      toast({
+        title: "Flashcard silindi",
+        description: "Flashcard başarıyla silindi.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Hata",
+        description: error.message || "Bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const toggleShowAnswer = (id: string) => {
+    setShowAnswer(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(id)) {
+        newSet.delete(id);
+      } else {
+        newSet.add(id);
+      }
+      return newSet;
+    });
+  };
+
   const SavedCardComponent = ({ savedCard }: { savedCard: SavedCard }) => {
     const card = savedCard.reading_cards;
+    const isOwner = user?.id === card.user_id;
 
     return (
       <Card className="group hover:shadow-medium transition-all duration-300 bg-gradient-card border-0">
@@ -281,7 +362,7 @@ const Saved = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => unsaveCard(savedCard.id, card.id)}
+                onClick={() => unsaveCard(savedCard.id)}
                 className="text-muted-foreground hover:text-destructive"
               >
                 <BookmarkX className="w-4 h-4" />
@@ -344,11 +425,45 @@ const Saved = () => {
                 variant="ghost" 
                 size="sm" 
                 className="text-muted-foreground hover:text-primary"
-                onClick={() => handleShare(card.id, card.title)}
+                onClick={() => handleShare(card.id, card.title, card.content, card.documents?.slug)}
               >
                 <Share2 className="w-4 h-4 mr-2" />
                 Paylaş
               </Button>
+              {isOwner && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={async () => {
+                    try {
+                      const { error } = await supabase
+                        .from('reading_cards')
+                        .delete()
+                        .eq('id', card.id)
+                        .eq('user_id', user.id);
+
+                      if (error) throw error;
+
+                      setSavedCards(prev => prev.filter(sc => sc.reading_cards.id !== card.id));
+
+                      toast({
+                        title: "Kart silindi",
+                        description: "Okuma kartı başarıyla silindi.",
+                      });
+                    } catch (error) {
+                      toast({
+                        title: "Hata",
+                        description: "Kart silinirken bir hata oluştu.",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Sil
+                </Button>
+              )}
             </div>
             <div className="flex items-center space-x-2">
               <Link 
@@ -357,9 +472,6 @@ const Saved = () => {
               >
                 {card.documents?.title}
               </Link>
-              <Badge variant="secondary" className="text-xs">
-                Kart {/* Card number removed */}
-              </Badge>
               <p className="text-xs text-muted-foreground">
                 {formatDistanceToNow(new Date(card.created_at), { 
                   addSuffix: true, 
@@ -367,6 +479,60 @@ const Saved = () => {
                 })}
               </p>
             </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  };
+
+  const FlashcardComponent = ({ flashcard }: { flashcard: Flashcard }) => {
+    const isRevealed = showAnswer.has(flashcard.id);
+
+    return (
+      <Card className="group hover:shadow-medium transition-all duration-300 bg-gradient-card border-0">
+        <CardContent className="p-6">
+          <div className="flex items-start justify-between mb-4">
+            <Link 
+              to={`/document/${flashcard.documents?.slug}`}
+              className="text-sm text-primary hover:text-primary-hover font-medium"
+            >
+              {flashcard.documents?.title}
+            </Link>
+            <div className="flex items-center space-x-2">
+              <p className="text-xs text-muted-foreground">
+                {formatDistanceToNow(new Date(flashcard.created_at), { 
+                  addSuffix: true, 
+                  locale: tr 
+                })}
+              </p>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => deleteFlashcard(flashcard.id)}
+              >
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+          
+          <div 
+            className="cursor-pointer"
+            onClick={() => toggleShowAnswer(flashcard.id)}
+          >
+            <h3 className="text-lg font-semibold text-foreground mb-3">
+              {flashcard.question}
+            </h3>
+            
+            {isRevealed ? (
+              <div className="p-4 bg-primary/5 rounded-lg border border-primary/20">
+                <p className="text-foreground">{flashcard.answer}</p>
+              </div>
+            ) : (
+              <div className="p-4 bg-muted/50 rounded-lg border border-border text-center">
+                <p className="text-muted-foreground text-sm">Cevabı görmek için tıklayın</p>
+              </div>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -393,61 +559,117 @@ const Saved = () => {
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-3xl mx-auto">
           <div className="mb-8">
-            <h1 className="text-3xl font-bold text-foreground mb-2">Kaydedilenler</h1>
+            <h1 className="text-3xl font-bold text-foreground mb-2">Çalışma Alanım</h1>
             <p className="text-muted-foreground">
-              Kaydettiğiniz okuma kartlarınızı buradan takip edin
+              Kaydettiğiniz okuma kartları ve flashcard'larınızı buradan yönetin
             </p>
           </div>
 
-          {isLoading ? (
-            <div className="space-y-4">
-              {[...Array(3)].map((_, i) => (
-                <Card key={i} className="animate-pulse">
-                  <CardHeader>
-                    <div className="flex items-center space-x-3">
-                      <div className="w-10 h-10 bg-muted rounded-full" />
-                      <div className="space-y-2 flex-1">
-                        <div className="h-4 bg-muted rounded w-1/4" />
-                        <div className="h-3 bg-muted rounded w-1/6" />
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div className="h-6 bg-muted rounded w-3/4" />
-                      <div className="h-4 bg-muted rounded w-full" />
-                      <div className="h-4 bg-muted rounded w-5/6" />
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          ) : savedCards.length === 0 ? (
-            <div className="text-center py-12">
-              <Bookmark className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                Henüz hiç kart kaydetmemişsiniz
-              </h3>
-              <p className="text-muted-foreground mb-4">
-                Beğendiğiniz okuma kartlarını kaydedin ve daha sonra kolayca erişin.
-              </p>
-              <Button asChild className="bg-gradient-primary hover:opacity-90">
-                <Link to="/timeline">Okuma Kartlarını Keşfet</Link>
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <Badge variant="secondary" className="text-sm">
-                  {savedCards.length} kayıtlı kart
-                </Badge>
-              </div>
-              
-              {savedCards.map((savedCard) => (
-                <SavedCardComponent key={savedCard.id} savedCard={savedCard} />
-              ))}
-            </div>
-          )}
+          <Tabs defaultValue="saved" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
+              <TabsTrigger value="saved" className="flex items-center gap-2">
+                <Bookmark className="w-4 h-4" />
+                Kaydedilenler
+                {savedCards.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {savedCards.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="flashcards" className="flex items-center gap-2">
+                <Layers className="w-4 h-4" />
+                Flashcard'lar
+                {flashcards.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-xs">
+                    {flashcards.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="saved">
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="animate-pulse">
+                      <CardHeader>
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-muted rounded-full" />
+                          <div className="space-y-2 flex-1">
+                            <div className="h-4 bg-muted rounded w-1/4" />
+                            <div className="h-3 bg-muted rounded w-1/6" />
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="h-6 bg-muted rounded w-3/4" />
+                          <div className="h-4 bg-muted rounded w-full" />
+                          <div className="h-4 bg-muted rounded w-5/6" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : savedCards.length === 0 ? (
+                <div className="text-center py-12">
+                  <Bookmark className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    Henüz hiç kart kaydetmemişsiniz
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    Beğendiğiniz okuma kartlarını kaydedin ve daha sonra kolayca erişin.
+                  </p>
+                  <Button asChild className="bg-gradient-primary hover:opacity-90">
+                    <Link to="/timeline">Okuma Kartlarını Keşfet</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {savedCards.map((savedCard) => (
+                    <SavedCardComponent key={savedCard.id} savedCard={savedCard} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="flashcards">
+              {isFlashcardsLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="animate-pulse">
+                      <CardContent className="p-6">
+                        <div className="space-y-3">
+                          <div className="h-4 bg-muted rounded w-1/4" />
+                          <div className="h-6 bg-muted rounded w-3/4" />
+                          <div className="h-20 bg-muted rounded w-full" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : flashcards.length === 0 ? (
+                <div className="text-center py-12">
+                  <Layers className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    Henüz hiç flashcard oluşturmamışsınız
+                  </h3>
+                  <p className="text-muted-foreground mb-4">
+                    PDF belgelerinizden flashcard'lar oluşturun ve öğrenmenizi hızlandırın.
+                  </p>
+                  <Button asChild className="bg-gradient-primary hover:opacity-90">
+                    <Link to="/documents">Belgelerime Git</Link>
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {flashcards.map((flashcard) => (
+                    <FlashcardComponent key={flashcard.id} flashcard={flashcard} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </div>
       </main>
     </div>
