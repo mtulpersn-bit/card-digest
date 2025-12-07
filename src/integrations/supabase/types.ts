@@ -273,10 +273,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      generate_unique_slug: {
-        Args: { input_title: string }
-        Returns: string
-      }
+      generate_unique_slug: { Args: { input_title: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -284,10 +281,7 @@ export type Database = {
         }
         Returns: boolean
       }
-      set_admin_with_code: {
-        Args: { _code: string }
-        Returns: Json
-      }
+      set_admin_with_code: { Args: { _code: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "user"
