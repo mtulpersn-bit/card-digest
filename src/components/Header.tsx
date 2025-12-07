@@ -113,7 +113,7 @@ const Header = () => {
           >
             <Link to="/saved" className="flex items-center space-x-2">
               <Bookmark className="w-4 h-4" />
-              <span>Kaydedilenler</span>
+              <span>Çalışma Alanım</span>
             </Link>
           </Button>
         </nav>

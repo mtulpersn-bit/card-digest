@@ -7,7 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { ArrowLeft, BookOpen, Eye, User, Calendar, Bookmark, ThumbsUp, Share2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Eye, User, Calendar, Bookmark, ThumbsUp, Share2, Trash2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import Header from '@/components/Header';
@@ -240,31 +240,61 @@ const DocumentDetail = () => {
     }
   };
 
-  const handleShare = async (cardId: string, cardTitle: string) => {
+  const handleShare = async (cardId: string, cardTitle: string, cardContent: string) => {
     const url = `${window.location.origin}/document/${document?.slug}#card-${cardId}`;
+    const shareText = `${cardTitle}\n\n${cardContent}\n\n${url}`;
     
     if (navigator.share) {
       try {
         await navigator.share({
           title: cardTitle,
+          text: cardContent,
           url: url,
         });
       } catch (error) {
         if (error instanceof Error && error.name !== 'AbortError') {
-          copyToClipboard(url);
+          copyToClipboard(shareText);
         }
       }
     } else {
-      copyToClipboard(url);
+      copyToClipboard(shareText);
     }
   };
 
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text);
     toast({
-      title: "Bağlantı kopyalandı",
-      description: "Kart bağlantısı panoya kopyalandı.",
+      title: "İçerik kopyalandı",
+      description: "Kart içeriği panoya kopyalandı.",
     });
+  };
+
+  const deleteReadingCard = async (cardId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('reading_cards')
+        .delete()
+        .eq('id', cardId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Kart silindi",
+        description: "Okuma kartı başarıyla silindi.",
+      });
+
+      fetchDocument();
+    } catch (error) {
+      console.error('Error deleting card:', error);
+      toast({
+        title: "Hata",
+        description: "Kart silinirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
   };
 
   const toggleSaveCard = async (cardId: string) => {
@@ -527,11 +557,22 @@ const DocumentDetail = () => {
                             variant="ghost" 
                             size="sm" 
                             className="text-muted-foreground hover:text-primary"
-                            onClick={() => handleShare(card.id, card.title)}
+                            onClick={() => handleShare(card.id, card.title, card.content)}
                           >
                             <Share2 className="w-4 h-4 mr-2" />
                             Paylaş
                           </Button>
+                          {user?.id === document.user_id && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-muted-foreground hover:text-destructive"
+                              onClick={() => deleteReadingCard(card.id)}
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Sil
+                            </Button>
+                          )}
                         </div>
                         <Button
                           variant="ghost"
