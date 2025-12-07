@@ -15,10 +15,40 @@ export type OcrProgress = {
   progress?: number; // 0..1 for OCR progress per page
 };
 
+export interface PageRange {
+  start: number;
+  end: number;
+}
+
+export function parsePageRange(rangeStr: string, totalPages: number): PageRange | null {
+  if (!rangeStr || rangeStr === 'all') {
+    return { start: 1, end: totalPages };
+  }
+
+  // Parse "0-3" or "4-7" format
+  const match = rangeStr.match(/^(\d+)-(\d+)$/);
+  if (match) {
+    const start = parseInt(match[1], 10);
+    const end = parseInt(match[2], 10);
+    
+    // Convert 0-indexed to 1-indexed for PDF pages
+    // "0-3" means pages 1-4 (first 4 pages)
+    const actualStart = start + 1;
+    const actualEnd = Math.min(end + 1, totalPages);
+    
+    if (actualStart <= totalPages && actualStart <= actualEnd) {
+      return { start: actualStart, end: actualEnd };
+    }
+  }
+
+  return null;
+}
+
 export async function extractTextFromPdf(
   url: string,
   onProgress?: (p: OcrProgress) => void,
-  lang: string = 'tur'
+  lang: string = 'tur',
+  pageRangeStr?: string
 ): Promise<string> {
   onProgress?.({ stage: 'loading' });
 
@@ -26,10 +56,19 @@ export async function extractTextFromPdf(
   const pdf = await loadingTask.promise;
   const totalPages = pdf.numPages;
 
-  let fullText = '';
+  // Parse page range
+  const range = parsePageRange(pageRangeStr || 'all', totalPages);
+  if (!range) {
+    throw new Error('Geçersiz sayfa aralığı');
+  }
 
-  for (let pageNum = 1; pageNum <= totalPages; pageNum++) {
-    onProgress?.({ stage: 'render', page: pageNum, totalPages });
+  const pagesToProcess = range.end - range.start + 1;
+  let fullText = '';
+  let processedPages = 0;
+
+  for (let pageNum = range.start; pageNum <= range.end; pageNum++) {
+    processedPages++;
+    onProgress?.({ stage: 'render', page: processedPages, totalPages: pagesToProcess });
 
     const page = await pdf.getPage(pageNum);
     const viewport = page.getViewport({ scale: 2 });
@@ -43,12 +82,12 @@ export async function extractTextFromPdf(
 
     await page.render({ canvasContext: context as any, viewport }).promise;
 
-    onProgress?.({ stage: 'ocr', page: pageNum, totalPages, progress: 0 });
+    onProgress?.({ stage: 'ocr', page: processedPages, totalPages: pagesToProcess, progress: 0 });
 
     const { data } = await Tesseract.recognize(canvas, lang, {
       logger: (m) => {
         if (m.status === 'recognizing text' && typeof m.progress === 'number') {
-          onProgress?.({ stage: 'ocr', page: pageNum, totalPages, progress: m.progress });
+          onProgress?.({ stage: 'ocr', page: processedPages, totalPages: pagesToProcess, progress: m.progress });
         }
       },
     });
@@ -59,7 +98,7 @@ export async function extractTextFromPdf(
     }
   }
 
-  onProgress?.({ stage: 'done', page: totalPages, totalPages });
+  onProgress?.({ stage: 'done', page: pagesToProcess, totalPages: pagesToProcess });
 
   const cleaned = fullText
     .replace(/\u0000/g, ' ')

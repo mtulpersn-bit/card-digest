@@ -119,16 +119,24 @@ const CreateReadingCardDialog = ({ documentId, documentContent, fileUrl, onCardC
             throw new Error('PDF dosyasına erişim sağlanamadı');
           }
 
-          const extractedText = await extractTextFromPdf(signedUrlData.signedUrl, (progress) => {
-            if (progress.stage === 'loading') {
-              setOcrProgress('PDF yükleniyor...');
-            } else if (progress.stage === 'render') {
-              setOcrProgress(`Sayfa ${progress.page}/${progress.totalPages} render ediliyor...`);
-            } else if (progress.stage === 'ocr') {
-              const percent = Math.round((progress.progress || 0) * 100);
-              setOcrProgress(`Sayfa ${progress.page}/${progress.totalPages} analiz ediliyor... ${percent}%`);
-            }
-          });
+          // Sayfa aralığını belirle
+          const finalPageRange = customPageRange.trim() || pageRange;
+          
+          const extractedText = await extractTextFromPdf(
+            signedUrlData.signedUrl, 
+            (progress) => {
+              if (progress.stage === 'loading') {
+                setOcrProgress('PDF yükleniyor...');
+              } else if (progress.stage === 'render') {
+                setOcrProgress(`Sayfa ${progress.page}/${progress.totalPages} render ediliyor...`);
+              } else if (progress.stage === 'ocr') {
+                const percent = Math.round((progress.progress || 0) * 100);
+                setOcrProgress(`Sayfa ${progress.page}/${progress.totalPages} analiz ediliyor... ${percent}%`);
+              }
+            },
+            'tur',
+            finalPageRange
+          );
           
           if (extractedText && extractedText.length > 10) {
             contentToAnalyze = extractedText;
