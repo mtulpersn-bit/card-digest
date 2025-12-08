@@ -21,6 +21,7 @@ export type Database = {
           description: string | null
           file_url: string | null
           id: string
+          is_public: boolean
           read_count: number
           slug: string
           title: string
@@ -33,6 +34,7 @@ export type Database = {
           description?: string | null
           file_url?: string | null
           id?: string
+          is_public?: boolean
           read_count?: number
           slug: string
           title: string
@@ -45,6 +47,7 @@ export type Database = {
           description?: string | null
           file_url?: string | null
           id?: string
+          is_public?: boolean
           read_count?: number
           slug?: string
           title?: string
@@ -63,6 +66,7 @@ export type Database = {
           question: string
           updated_at: string
           user_id: string
+          view_count: number
         }
         Insert: {
           answer: string
@@ -73,6 +77,7 @@ export type Database = {
           question: string
           updated_at?: string
           user_id: string
+          view_count?: number
         }
         Update: {
           answer?: string
@@ -83,6 +88,7 @@ export type Database = {
           question?: string
           updated_at?: string
           user_id?: string
+          view_count?: number
         }
         Relationships: [
           {
