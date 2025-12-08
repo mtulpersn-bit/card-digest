@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { FileText, User, Eye, BookOpen, Clock } from 'lucide-react';
+import { FileText, User, Eye, BookOpen, Clock, Globe, Lock } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import Header from '@/components/Header';
@@ -20,6 +20,7 @@ interface Document {
   read_count: number;
   created_at: string;
   user_id: string;
+  is_public: boolean;
   profiles: {
     display_name: string;
     avatar_url: string;
@@ -41,7 +42,7 @@ const Documents = () => {
     if (!user) return;
 
     try {
-      // Fetch all documents (network)
+      // Fetch all public documents (network)
       const { data: allDocs, error: allError } = await supabase
         .from('documents')
         .select(`
@@ -52,8 +53,10 @@ const Documents = () => {
           read_count,
           created_at,
           user_id,
+          is_public,
           reading_cards (id)
         `)
+        .eq('is_public', true)
         .order('created_at', { ascending: false });
 
       if (allError) throw allError;
@@ -87,6 +90,7 @@ const Documents = () => {
           read_count,
           created_at,
           user_id,
+          is_public,
           reading_cards (id)
         `)
         .eq('user_id', user.id)
@@ -205,63 +209,23 @@ const Documents = () => {
             </p>
           </div>
 
-          <Tabs defaultValue="network" className="w-full">
+          <Tabs defaultValue="personal" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="network" className="flex items-center space-x-2">
-                <span>Ağ</span>
-                <Badge variant="secondary" className="ml-2">
-                  {networkDocuments.length}
-                </Badge>
-              </TabsTrigger>
               <TabsTrigger value="personal" className="flex items-center space-x-2">
+                <Lock className="w-4 h-4" />
                 <span>Kişisel</span>
                 <Badge variant="secondary" className="ml-2">
                   {personalDocuments.length}
                 </Badge>
               </TabsTrigger>
+              <TabsTrigger value="network" className="flex items-center space-x-2">
+                <Globe className="w-4 h-4" />
+                <span>Ağ</span>
+                <Badge variant="secondary" className="ml-2">
+                  {networkDocuments.length}
+                </Badge>
+              </TabsTrigger>
             </TabsList>
-
-            <TabsContent value="network" className="space-y-6">
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[...Array(3)].map((_, i) => (
-                    <Card key={i} className="animate-pulse">
-                      <CardHeader>
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-muted rounded-full" />
-                          <div className="space-y-2 flex-1">
-                            <div className="h-4 bg-muted rounded w-1/4" />
-                            <div className="h-3 bg-muted rounded w-1/6" />
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          <div className="h-6 bg-muted rounded w-3/4" />
-                          <div className="h-4 bg-muted rounded w-1/2" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : networkDocuments.length === 0 ? (
-                <div className="text-center py-12">
-                  <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
-                    Henüz belge yok
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Topluluk henüz hiç belge paylaşmamış.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {networkDocuments.map((document) => (
-                    <DocumentCard key={document.id} document={document} />
-                  ))}
-                </div>
-              )}
-            </TabsContent>
 
             <TabsContent value="personal" className="space-y-6">
               {isLoading ? (
@@ -291,6 +255,48 @@ const Documents = () => {
               ) : (
                 <div className="space-y-6">
                   {personalDocuments.map((document) => (
+                    <DocumentCard key={document.id} document={document} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="network" className="space-y-6">
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="animate-pulse">
+                      <CardHeader>
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-muted rounded-full" />
+                          <div className="space-y-2 flex-1">
+                            <div className="h-4 bg-muted rounded w-1/4" />
+                            <div className="h-3 bg-muted rounded w-1/6" />
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="h-6 bg-muted rounded w-3/4" />
+                          <div className="h-4 bg-muted rounded w-1/2" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : networkDocuments.length === 0 ? (
+                <div className="text-center py-12">
+                  <Globe className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    Henüz paylaşılan belge yok
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Topluluk henüz hiç belge paylaşmamış.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {networkDocuments.map((document) => (
                     <DocumentCard key={document.id} document={document} />
                   ))}
                 </div>

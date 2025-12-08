@@ -7,7 +7,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { ArrowLeft, BookOpen, Eye, User, Calendar, Bookmark, ThumbsUp, Share2, Trash2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Eye, User, Calendar, Bookmark, ThumbsUp, Share2, Trash2, Globe, Lock, Loader2 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import Header from '@/components/Header';
@@ -24,6 +25,7 @@ interface DocumentData {
   created_at: string;
   user_id: string;
   file_url?: string;
+  is_public: boolean;
   profiles: {
     display_name: string;
     avatar_url: string;
@@ -36,6 +38,68 @@ interface DocumentData {
     card_order: number;
   }>;
 }
+
+const VisibilityToggle = ({ 
+  documentId, 
+  isPublic, 
+  onUpdate 
+}: { 
+  documentId: string; 
+  isPublic: boolean; 
+  onUpdate: (isPublic: boolean) => void;
+}) => {
+  const [loading, setLoading] = useState(false);
+  const { toast } = useToast();
+
+  const toggleVisibility = async () => {
+    setLoading(true);
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({ is_public: !isPublic })
+        .eq('id', documentId);
+
+      if (error) throw error;
+
+      onUpdate(!isPublic);
+      toast({
+        title: isPublic ? "Kişisel moda geçildi" : "Ağ moduna geçildi",
+        description: isPublic 
+          ? "Belgeniz artık sadece size görünür." 
+          : "Belgeniz artık herkese açık.",
+      });
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "Görünürlük değiştirilirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center space-x-3 p-3 bg-muted/50 rounded-lg border border-border">
+      {isPublic ? (
+        <Globe className="w-4 h-4 text-primary" />
+      ) : (
+        <Lock className="w-4 h-4 text-muted-foreground" />
+      )}
+      <div className="text-sm">
+        <p className="font-medium text-foreground">
+          {isPublic ? 'Ağ Modu' : 'Kişisel'}
+        </p>
+      </div>
+      <Switch
+        checked={isPublic}
+        onCheckedChange={toggleVisibility}
+        disabled={loading}
+      />
+      {loading && <Loader2 className="w-4 h-4 animate-spin" />}
+    </div>
+  );
+};
 
 const DocumentDetail = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -80,6 +144,7 @@ const DocumentDetail = () => {
           created_at,
           user_id,
           file_url,
+          is_public,
           reading_cards (
             id,
             title,
@@ -453,19 +518,26 @@ const DocumentDetail = () => {
                 )}
               </div>
               
-              {(user?.id === document.user_id || loading) && (
-                <div className="ml-6">
+              <div className="ml-6 flex flex-col items-end space-y-3">
+                {user?.id === document.user_id && (
+                  <VisibilityToggle 
+                    documentId={document.id} 
+                    isPublic={document.is_public} 
+                    onUpdate={(isPublic) => setDocument(prev => prev ? { ...prev, is_public: isPublic } : null)}
+                  />
+                )}
+                
+                {(user?.id === document.user_id || loading) && document.file_url && (
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    disabled={loading || !document.file_url}
                     onClick={() => navigate(`/pdf/${document.slug}`)}
                   >
                     <Eye className="w-4 h-4 mr-2" />
                     Belgeyi Görüntüle
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
 

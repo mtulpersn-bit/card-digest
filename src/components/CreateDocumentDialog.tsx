@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { FileText, Upload, Loader2 } from 'lucide-react';
+import { FileText, Upload, Loader2, Globe, Lock } from 'lucide-react';
 
 interface CreateDocumentDialogProps {
   onClose: () => void;
@@ -19,6 +20,7 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
   const [description, setDescription] = useState('');
   const [content, setContent] = useState('');
   const [file, setFile] = useState<File | null>(null);
+  const [isPublic, setIsPublic] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -30,7 +32,6 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
 
     setIsLoading(true);
     try {
-      // Generate slug using the database function
       const { data: slugData, error: slugError } = await supabase
         .rpc('generate_unique_slug', { input_title: title });
 
@@ -44,6 +45,7 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
           content: content.trim(),
           slug: slugData,
           user_id: user.id,
+          is_public: isPublic,
         })
         .select()
         .single();
@@ -52,7 +54,7 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
 
       toast({
         title: "Belge oluşturuldu!",
-        description: "Belgeniz başarıyla oluşturuldu.",
+        description: isPublic ? "Belgeniz herkese açık olarak oluşturuldu." : "Belgeniz kişisel olarak oluşturuldu.",
       });
 
       onClose();
@@ -75,7 +77,6 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
 
     setIsLoading(true);
     try {
-      // Upload PDF to Supabase Storage
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
       
@@ -85,7 +86,6 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
 
       if (uploadError) throw uploadError;
 
-      // Generate slug using the database function
       const { data: slugData, error: slugError } = await supabase
         .rpc('generate_unique_slug', { input_title: title });
 
@@ -100,6 +100,7 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
           file_url: uploadData.path,
           slug: slugData,
           user_id: user.id,
+          is_public: isPublic,
         })
         .select()
         .single();
@@ -108,7 +109,7 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
 
       toast({
         title: "PDF yüklendi!",
-        description: "PDF dosyanız başarıyla yüklendi.",
+        description: isPublic ? "PDF dosyanız herkese açık olarak yüklendi." : "PDF dosyanız kişisel olarak yüklendi.",
       });
 
       onClose();
@@ -172,6 +173,31 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
               required
             />
           </div>
+
+          {/* Visibility Toggle */}
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
+            <div className="flex items-center space-x-3">
+              {isPublic ? (
+                <Globe className="w-5 h-5 text-primary" />
+              ) : (
+                <Lock className="w-5 h-5 text-muted-foreground" />
+              )}
+              <div>
+                <p className="font-medium text-foreground">
+                  {isPublic ? 'Ağ Modu' : 'Kişisel Mod'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {isPublic 
+                    ? 'Tüm kullanıcılar bu belgeyi görebilir' 
+                    : 'Sadece siz bu belgeyi görebilirsiniz'}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={isPublic}
+              onCheckedChange={setIsPublic}
+            />
+          </div>
           
           <div className="flex space-x-2 pt-4">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">
@@ -230,6 +256,31 @@ const CreateDocumentDialog = ({ onClose }: CreateDocumentDialogProps) => {
             <p className="text-xs text-muted-foreground">
               Maksimum dosya boyutu: 10MB
             </p>
+          </div>
+
+          {/* Visibility Toggle */}
+          <div className="flex items-center justify-between p-4 bg-muted/50 rounded-lg border border-border">
+            <div className="flex items-center space-x-3">
+              {isPublic ? (
+                <Globe className="w-5 h-5 text-primary" />
+              ) : (
+                <Lock className="w-5 h-5 text-muted-foreground" />
+              )}
+              <div>
+                <p className="font-medium text-foreground">
+                  {isPublic ? 'Ağ Modu' : 'Kişisel Mod'}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {isPublic 
+                    ? 'Tüm kullanıcılar bu belgeyi görebilir' 
+                    : 'Sadece siz bu belgeyi görebilirsiniz'}
+                </p>
+              </div>
+            </div>
+            <Switch
+              checked={isPublic}
+              onCheckedChange={setIsPublic}
+            />
           </div>
           
           <div className="flex space-x-2 pt-4">
