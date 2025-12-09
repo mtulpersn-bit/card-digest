@@ -1,14 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { ArrowLeft, BookOpen, Eye, User, Calendar, Bookmark, ThumbsUp, Share2, Trash2, Globe, Lock, Loader2 } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
+import { ArrowLeft, BookOpen, Eye, User, Calendar, Bookmark, ThumbsUp, Share2, Trash2, Globe, GlobeLock, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import Header from '@/components/Header';
@@ -36,70 +34,10 @@ interface DocumentData {
     content: string;
     image_url?: string;
     card_order: number;
+    is_public: boolean;
+    user_id: string;
   }>;
 }
-
-const VisibilityToggle = ({ 
-  documentId, 
-  isPublic, 
-  onUpdate 
-}: { 
-  documentId: string; 
-  isPublic: boolean; 
-  onUpdate: (isPublic: boolean) => void;
-}) => {
-  const [loading, setLoading] = useState(false);
-  const { toast } = useToast();
-
-  const toggleVisibility = async () => {
-    setLoading(true);
-    try {
-      const { error } = await supabase
-        .from('documents')
-        .update({ is_public: !isPublic })
-        .eq('id', documentId);
-
-      if (error) throw error;
-
-      onUpdate(!isPublic);
-      toast({
-        title: isPublic ? "Kişisel moda geçildi" : "Ağ moduna geçildi",
-        description: isPublic 
-          ? "Belgeniz artık sadece size görünür." 
-          : "Belgeniz artık herkese açık.",
-      });
-    } catch (error) {
-      toast({
-        title: "Hata",
-        description: "Görünürlük değiştirilirken bir hata oluştu.",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <div className="flex items-center space-x-3 p-3 bg-muted/50 rounded-lg border border-border">
-      {isPublic ? (
-        <Globe className="w-4 h-4 text-primary" />
-      ) : (
-        <Lock className="w-4 h-4 text-muted-foreground" />
-      )}
-      <div className="text-sm">
-        <p className="font-medium text-foreground">
-          {isPublic ? 'Ağ Modu' : 'Kişisel'}
-        </p>
-      </div>
-      <Switch
-        checked={isPublic}
-        onCheckedChange={toggleVisibility}
-        disabled={loading}
-      />
-      {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-    </div>
-  );
-};
 
 const DocumentDetail = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -111,12 +49,7 @@ const DocumentDetail = () => {
   const [savedCards, setSavedCards] = useState<Set<string>>(new Set());
   const [likedCards, setLikedCards] = useState<Set<string>>(new Set());
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
-
-  // Debug logging
-  console.log('Current user:', user);
-  console.log('Document:', document);
-  console.log('User ID match:', user?.id === document?.user_id);
-  console.log('Auth loading:', loading);
+  const [cardVisibilityLoading, setCardVisibilityLoading] = useState<string | null>(null);
 
   useEffect(() => {
     if (slug) {
@@ -150,7 +83,9 @@ const DocumentDetail = () => {
             title,
             content,
             image_url,
-            card_order
+            card_order,
+            is_public,
+            user_id
           )
         `)
         .eq('slug', slug)
@@ -162,16 +97,11 @@ const DocumentDetail = () => {
         return;
       }
 
-      // Fetch the author's profile
-      const { data: profile, error: profileError } = await supabase
+      const { data: profile } = await supabase
         .from('profiles')
         .select('id, display_name, avatar_url')
         .eq('id', docData.user_id)
         .single();
-
-      if (profileError) {
-        console.error('Error fetching profile:', profileError);
-      }
 
       const documentWithProfile = {
         ...docData,
@@ -184,7 +114,6 @@ const DocumentDetail = () => {
 
       setDocument(documentWithProfile);
 
-      // Fetch like counts for all cards
       if (docData.reading_cards && docData.reading_cards.length > 0) {
         const cardIds = docData.reading_cards.map((card) => card.id);
         const { data: likesData } = await supabase
@@ -199,7 +128,6 @@ const DocumentDetail = () => {
         setLikeCounts(counts);
       }
 
-      // Increment read count
       if (user?.id !== docData.user_id) {
         await supabase
           .from('documents')
@@ -362,6 +290,39 @@ const DocumentDetail = () => {
     }
   };
 
+  const toggleCardVisibility = async (cardId: string, currentIsPublic: boolean) => {
+    if (!user) return;
+
+    setCardVisibilityLoading(cardId);
+    try {
+      const { error } = await supabase
+        .from('reading_cards')
+        .update({ is_public: !currentIsPublic })
+        .eq('id', cardId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: currentIsPublic ? "Kart kişisel yapıldı" : "Kart ağda paylaşıldı",
+        description: currentIsPublic 
+          ? "Bu kart artık sadece size görünür." 
+          : "Bu kart artık ağda herkese görünür.",
+      });
+
+      fetchDocument();
+    } catch (error) {
+      console.error('Error toggling card visibility:', error);
+      toast({
+        title: "Hata",
+        description: "Kart görünürlüğü değiştirilirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    } finally {
+      setCardVisibilityLoading(null);
+    }
+  };
+
   const toggleSaveCard = async (cardId: string) => {
     if (!user) {
       toast({
@@ -419,6 +380,24 @@ const DocumentDetail = () => {
     }
   };
 
+  const handleVisibilityUpdate = (isPublic: boolean) => {
+    setDocument(prev => prev ? { ...prev, is_public: isPublic } : null);
+    
+    // If document is made public, make all cards public by default
+    if (isPublic && document) {
+      document.reading_cards.forEach(async (card) => {
+        if (!card.is_public) {
+          await supabase
+            .from('reading_cards')
+            .update({ is_public: true })
+            .eq('id', card.id)
+            .eq('user_id', user?.id);
+        }
+      });
+      fetchDocument();
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -458,9 +437,16 @@ const DocumentDetail = () => {
     );
   }
 
+  const isOwner = user?.id === document.user_id;
+
   return (
     <div className="min-h-screen bg-background">
-      <Header />
+      <Header 
+        documentId={document.id}
+        isDocumentPublic={document.is_public}
+        isDocumentOwner={isOwner}
+        onVisibilityUpdate={handleVisibilityUpdate}
+      />
       
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
@@ -519,15 +505,7 @@ const DocumentDetail = () => {
               </div>
               
               <div className="ml-6 flex flex-col items-end space-y-3">
-                {user?.id === document.user_id && (
-                  <VisibilityToggle 
-                    documentId={document.id} 
-                    isPublic={document.is_public} 
-                    onUpdate={(isPublic) => setDocument(prev => prev ? { ...prev, is_public: isPublic } : null)}
-                  />
-                )}
-                
-                {(user?.id === document.user_id || loading) && document.file_url && (
+                {isOwner && document.file_url && (
                   <Button 
                     variant="outline" 
                     size="sm" 
@@ -541,7 +519,6 @@ const DocumentDetail = () => {
             </div>
           </div>
 
-
           {/* Reading Cards */}
           <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -550,7 +527,7 @@ const DocumentDetail = () => {
                 <span>Okuma Kartları</span>
                 <Badge variant="secondary">{document.reading_cards.length}</Badge>
               </h2>
-              {(user?.id === document.user_id || loading) && (
+              {isOwner && (
                 <CreateReadingCardDialog
                   documentId={document.id}
                   documentContent={document.content}
@@ -574,7 +551,7 @@ const DocumentDetail = () => {
               </Card>
             ) : (
               <div className="space-y-6">
-                {document.reading_cards.map((card, index) => (
+                {document.reading_cards.map((card) => (
                   <Card key={card.id} className="bg-gradient-card border-0 hover:shadow-medium transition-all duration-300 overflow-hidden">
                     <CardContent className="pb-4">
                       {card.image_url ? (
@@ -615,15 +592,15 @@ const DocumentDetail = () => {
                       
                       {/* Action buttons */}
                       <div className="flex items-center justify-between pt-4 border-t border-border/50">
-                        <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-2 md:space-x-4 flex-wrap gap-y-2">
                           <Button 
                             variant="ghost" 
                             size="sm" 
                             className={`${likedCards.has(card.id) ? 'text-primary' : 'text-muted-foreground'} hover:text-primary`}
                             onClick={() => toggleLikeCard(card.id)}
                           >
-                            <ThumbsUp className={`w-4 h-4 mr-2 ${likedCards.has(card.id) ? 'fill-current' : ''}`} />
-                            Beğen {likeCounts[card.id] ? `(${likeCounts[card.id]})` : ''}
+                            <ThumbsUp className={`w-4 h-4 mr-1 md:mr-2 ${likedCards.has(card.id) ? 'fill-current' : ''}`} />
+                            <span className="hidden md:inline">Beğen</span> {likeCounts[card.id] ? `(${likeCounts[card.id]})` : ''}
                           </Button>
                           <Button 
                             variant="ghost" 
@@ -631,18 +608,39 @@ const DocumentDetail = () => {
                             className="text-muted-foreground hover:text-primary"
                             onClick={() => handleShare(card.id, card.title, card.content)}
                           >
-                            <Share2 className="w-4 h-4 mr-2" />
-                            Paylaş
+                            <Share2 className="w-4 h-4 mr-1 md:mr-2" />
+                            <span className="hidden md:inline">Paylaş</span>
                           </Button>
-                          {user?.id === document.user_id && (
+                          
+                          {/* Network Share Toggle - Only for card owner */}
+                          {user?.id === card.user_id && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className={`${card.is_public ? 'text-primary' : 'text-muted-foreground'} hover:text-primary`}
+                              onClick={() => toggleCardVisibility(card.id, card.is_public)}
+                              disabled={cardVisibilityLoading === card.id}
+                            >
+                              {cardVisibilityLoading === card.id ? (
+                                <Loader2 className="w-4 h-4 mr-1 md:mr-2 animate-spin" />
+                              ) : card.is_public ? (
+                                <Globe className="w-4 h-4 mr-1 md:mr-2" />
+                              ) : (
+                                <GlobeLock className="w-4 h-4 mr-1 md:mr-2" />
+                              )}
+                              <span className="hidden md:inline">{card.is_public ? 'Ağda' : 'Kişisel'}</span>
+                            </Button>
+                          )}
+                          
+                          {user?.id === card.user_id && (
                             <Button 
                               variant="ghost" 
                               size="sm" 
                               className="text-muted-foreground hover:text-destructive"
                               onClick={() => deleteReadingCard(card.id)}
                             >
-                              <Trash2 className="w-4 h-4 mr-2" />
-                              Sil
+                              <Trash2 className="w-4 h-4 mr-1 md:mr-2" />
+                              <span className="hidden md:inline">Sil</span>
                             </Button>
                           )}
                         </div>
@@ -652,8 +650,8 @@ const DocumentDetail = () => {
                           onClick={() => toggleSaveCard(card.id)}
                           className={`hover:bg-primary/10 ${savedCards.has(card.id) ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
                         >
-                          <Bookmark className={`w-4 h-4 mr-2 ${savedCards.has(card.id) ? 'fill-current' : ''}`} />
-                          {savedCards.has(card.id) ? 'Kaydedildi' : 'Kaydet'}
+                          <Bookmark className={`w-4 h-4 mr-1 md:mr-2 ${savedCards.has(card.id) ? 'fill-current' : ''}`} />
+                          <span className="hidden md:inline">{savedCards.has(card.id) ? 'Kaydedildi' : 'Kaydet'}</span>
                         </Button>
                       </div>
                     </CardContent>

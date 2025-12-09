@@ -4,7 +4,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
-import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Documents from "./pages/Documents";
 import DocumentDetail from "./pages/DocumentDetail";
@@ -43,7 +42,7 @@ const App = () => (
           <Route path="/auth" element={<Auth />} />
           <Route path="/" element={
             <ProtectedRoute>
-              <Index />
+              <Navigate to="/timeline" replace />
             </ProtectedRoute>
           } />
           <Route path="/documents" element={
