@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { BookOpen, User, Bookmark, BookmarkCheck, ExternalLink, ThumbsUp, Share2 } from 'lucide-react';
+import { BookOpen, User, Bookmark, BookmarkCheck, ExternalLink, ThumbsUp, Share2, Globe, GlobeLock, Trash2, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { useToast } from '@/components/ui/use-toast';
@@ -21,6 +21,7 @@ interface ReadingCard {
   created_at: string;
   document_id: string;
   user_id: string;
+  is_public: boolean;
   profiles: {
     display_name: string;
     avatar_url: string;
@@ -36,18 +37,24 @@ const Timeline = () => {
   const [networkCards, setNetworkCards] = useState<ReadingCard[]>([]);
   const [personalCards, setPersonalCards] = useState<ReadingCard[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [likedCards, setLikedCards] = useState<Set<string>>(new Set());
+  const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
+  const [cardVisibilityLoading, setCardVisibilityLoading] = useState<string | null>(null);
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
     fetchReadingCards();
+    if (user) {
+      fetchLikedCards();
+    }
   }, [user]);
 
   const fetchReadingCards = async () => {
     if (!user) return;
 
     try {
-      // Fetch all reading cards (network) with saved status
+      // Fetch network cards (public cards from public documents)
       const { data: allCards, error: allError } = await supabase
         .from('reading_cards')
         .select(`
@@ -58,36 +65,41 @@ const Timeline = () => {
           created_at,
           document_id,
           user_id,
+          is_public,
           documents (
             title,
-            slug
+            slug,
+            is_public
           ),
           saved_cards!left (
             id
           )
         `)
+        .eq('is_public', true)
         .order('created_at', { ascending: false });
 
       if (allError) throw allError;
 
+      // Filter to only show cards from public documents
+      const publicCards = allCards?.filter(card => card.documents?.is_public) || [];
+
       // Fetch profiles for the cards
-      const cardUserIds = [...new Set(allCards?.map(card => card.user_id) || [])];
+      const cardUserIds = [...new Set(publicCards.map(card => card.user_id))];
       const { data: cardProfiles } = await supabase
         .from('profiles')
         .select('id, display_name, avatar_url')
         .in('id', cardUserIds);
 
-      // Combine cards with profiles
-      const cardsWithProfiles = allCards?.map(card => ({
+      const cardsWithProfiles = publicCards.map(card => ({
         ...card,
         profiles: cardProfiles?.find(p => p.id === card.user_id) || {
           display_name: 'Anonim Kullanıcı',
           avatar_url: null
         }
-      })) || [];
+      }));
 
-      // Fetch personal reading cards
-      const { data: personalCards, error: personalError } = await supabase
+      // Fetch personal reading cards (all cards by the user)
+      const { data: personalCardsData, error: personalError } = await supabase
         .from('reading_cards')
         .select(`
           id,
@@ -97,9 +109,13 @@ const Timeline = () => {
           created_at,
           document_id,
           user_id,
+          is_public,
           documents (
             title,
             slug
+          ),
+          saved_cards!left (
+            id
           )
         `)
         .eq('user_id', user.id)
@@ -107,14 +123,13 @@ const Timeline = () => {
 
       if (personalError) throw personalError;
 
-      // Get user's profile
       const { data: userProfile } = await supabase
         .from('profiles')
         .select('id, display_name, avatar_url')
         .eq('id', user.id)
         .single();
 
-      const personalCardsWithProfile = personalCards?.map(card => ({
+      const personalCardsWithProfile = personalCardsData?.map(card => ({
         ...card,
         profiles: userProfile || {
           display_name: 'Anonim Kullanıcı',
@@ -122,7 +137,20 @@ const Timeline = () => {
         }
       })) || [];
 
-      if (personalError) throw personalError;
+      // Fetch like counts for all cards
+      const allCardIds = [...cardsWithProfiles, ...personalCardsWithProfile].map(c => c.id);
+      if (allCardIds.length > 0) {
+        const { data: likesData } = await supabase
+          .from('reading_card_likes')
+          .select('reading_card_id')
+          .in('reading_card_id', allCardIds);
+
+        const counts: Record<string, number> = {};
+        likesData?.forEach((like) => {
+          counts[like.reading_card_id] = (counts[like.reading_card_id] || 0) + 1;
+        });
+        setLikeCounts(counts);
+      }
 
       setNetworkCards(cardsWithProfiles);
       setPersonalCards(personalCardsWithProfile);
@@ -133,12 +161,159 @@ const Timeline = () => {
     }
   };
 
+  const fetchLikedCards = async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('reading_card_likes')
+        .select('reading_card_id')
+        .eq('user_id', user.id);
+
+      if (!error && data) {
+        setLikedCards(new Set(data.map(item => item.reading_card_id)));
+      }
+    } catch (error) {
+      console.error('Error fetching liked cards:', error);
+    }
+  };
+
+  const toggleLikeCard = async (cardId: string) => {
+    if (!user) return;
+
+    try {
+      if (likedCards.has(cardId)) {
+        await supabase
+          .from('reading_card_likes')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('reading_card_id', cardId);
+
+        setLikedCards(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(cardId);
+          return newSet;
+        });
+
+        setLikeCounts(prev => ({
+          ...prev,
+          [cardId]: Math.max(0, (prev[cardId] || 0) - 1)
+        }));
+      } else {
+        await supabase
+          .from('reading_card_likes')
+          .insert({
+            user_id: user.id,
+            reading_card_id: cardId
+          });
+
+        setLikedCards(prev => new Set([...prev, cardId]));
+
+        setLikeCounts(prev => ({
+          ...prev,
+          [cardId]: (prev[cardId] || 0) + 1
+        }));
+      }
+    } catch (error) {
+      console.error('Error toggling like:', error);
+    }
+  };
+
+  const handleShare = async (card: ReadingCard) => {
+    const url = `${window.location.origin}/document/${card.documents?.slug}#card-${card.id}`;
+    const shareText = `${card.title}\n\n${card.content}\n\n${url}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: card.title,
+          text: card.content,
+          url: url,
+        });
+      } catch (error) {
+        if (error instanceof Error && error.name !== 'AbortError') {
+          navigator.clipboard.writeText(shareText);
+          toast({
+            title: "İçerik kopyalandı",
+            description: "Kart içeriği panoya kopyalandı.",
+          });
+        }
+      }
+    } else {
+      navigator.clipboard.writeText(shareText);
+      toast({
+        title: "İçerik kopyalandı",
+        description: "Kart içeriği panoya kopyalandı.",
+      });
+    }
+  };
+
+  const toggleCardVisibility = async (cardId: string, currentIsPublic: boolean) => {
+    if (!user) return;
+
+    setCardVisibilityLoading(cardId);
+    try {
+      const { error } = await supabase
+        .from('reading_cards')
+        .update({ is_public: !currentIsPublic })
+        .eq('id', cardId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: currentIsPublic ? "Kart kişisel yapıldı" : "Kart ağda paylaşıldı",
+        description: currentIsPublic 
+          ? "Bu kart artık sadece size görünür." 
+          : "Bu kart artık ağda herkese görünür.",
+      });
+
+      fetchReadingCards();
+    } catch (error) {
+      console.error('Error toggling card visibility:', error);
+      toast({
+        title: "Hata",
+        description: "Kart görünürlüğü değiştirilirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    } finally {
+      setCardVisibilityLoading(null);
+    }
+  };
+
+  const deleteCard = async (cardId: string) => {
+    if (!user) return;
+
+    try {
+      const { error } = await supabase
+        .from('reading_cards')
+        .delete()
+        .eq('id', cardId)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Kart silindi",
+        description: "Okuma kartı başarıyla silindi.",
+      });
+
+      fetchReadingCards();
+    } catch (error) {
+      console.error('Error deleting card:', error);
+      toast({
+        title: "Hata",
+        description: "Kart silinirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const toggleSaveCard = async (cardId: string, isSaved: boolean) => {
     if (!user) return;
 
     try {
       if (isSaved) {
-        // Unsave the card
         const { error } = await supabase
           .from('saved_cards')
           .delete()
@@ -152,7 +327,6 @@ const Timeline = () => {
           description: "Okuma kartı kaydedilenlerden kaldırıldı.",
         });
       } else {
-        // Save the card
         const { error } = await supabase
           .from('saved_cards')
           .insert({
@@ -168,7 +342,6 @@ const Timeline = () => {
         });
       }
 
-      // Refresh the cards to update saved status
       fetchReadingCards();
     } catch (error: any) {
       toast({
@@ -179,8 +352,9 @@ const Timeline = () => {
     }
   };
 
-  const ReadingCardComponent = ({ card }: { card: ReadingCard }) => {
+  const ReadingCardComponent = ({ card, showOwnerActions = false }: { card: ReadingCard; showOwnerActions?: boolean }) => {
     const isSaved = card.saved_cards && card.saved_cards.length > 0;
+    const isOwner = user?.id === card.user_id;
 
     return (
       <Card className="group hover:shadow-medium transition-all duration-300 bg-gradient-card border-0">
@@ -210,7 +384,7 @@ const Timeline = () => {
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => toggleSaveCard(card.id, isSaved)}
+                onClick={() => toggleSaveCard(card.id, !!isSaved)}
                 className="text-muted-foreground hover:text-foreground"
               >
                 {isSaved ? (
@@ -263,20 +437,62 @@ const Timeline = () => {
           )}
           
           <div className="flex items-center justify-between pt-4 border-t border-border/50">
-            <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
-                <ThumbsUp className="w-4 h-4 mr-2" />
-                Beğen
+            <div className="flex items-center space-x-2 md:space-x-4 flex-wrap gap-y-2">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className={`${likedCards.has(card.id) ? 'text-primary' : 'text-muted-foreground'} hover:text-primary`}
+                onClick={() => toggleLikeCard(card.id)}
+              >
+                <ThumbsUp className={`w-4 h-4 mr-1 md:mr-2 ${likedCards.has(card.id) ? 'fill-current' : ''}`} />
+                <span className="hidden md:inline">Beğen</span> {likeCounts[card.id] ? `(${likeCounts[card.id]})` : ''}
               </Button>
-              <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
-                <Share2 className="w-4 h-4 mr-2" />
-                Paylaş
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-muted-foreground hover:text-primary"
+                onClick={() => handleShare(card)}
+              >
+                <Share2 className="w-4 h-4 mr-1 md:mr-2" />
+                <span className="hidden md:inline">Paylaş</span>
               </Button>
+              
+              {/* Network Share Toggle - Only for card owner */}
+              {isOwner && showOwnerActions && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className={`${card.is_public ? 'text-primary' : 'text-muted-foreground'} hover:text-primary`}
+                  onClick={() => toggleCardVisibility(card.id, card.is_public)}
+                  disabled={cardVisibilityLoading === card.id}
+                >
+                  {cardVisibilityLoading === card.id ? (
+                    <Loader2 className="w-4 h-4 mr-1 md:mr-2 animate-spin" />
+                  ) : card.is_public ? (
+                    <Globe className="w-4 h-4 mr-1 md:mr-2" />
+                  ) : (
+                    <GlobeLock className="w-4 h-4 mr-1 md:mr-2" />
+                  )}
+                  <span className="hidden md:inline">{card.is_public ? 'Ağda' : 'Kişisel'}</span>
+                </Button>
+              )}
+              
+              {isOwner && showOwnerActions && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-muted-foreground hover:text-destructive"
+                  onClick={() => deleteCard(card.id)}
+                >
+                  <Trash2 className="w-4 h-4 mr-1 md:mr-2" />
+                  <span className="hidden md:inline">Sil</span>
+                </Button>
+              )}
             </div>
             <div className="flex items-center space-x-2">
               <Link 
                 to={`/document/${card.documents?.slug}`}
-                className="text-sm text-primary hover:text-primary-hover font-medium"
+                className="text-sm text-primary hover:text-primary-hover font-medium hidden md:inline"
               >
                 {card.documents?.title}
               </Link>
@@ -316,64 +532,21 @@ const Timeline = () => {
             </p>
           </div>
 
-          <Tabs defaultValue="network" className="w-full">
+          <Tabs defaultValue="personal" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-8">
-              <TabsTrigger value="network" className="flex items-center space-x-2">
-                <span>Ağ</span>
-                <Badge variant="secondary" className="ml-2">
-                  {networkCards.length}
-                </Badge>
-              </TabsTrigger>
               <TabsTrigger value="personal" className="flex items-center space-x-2">
                 <span>Kişisel</span>
                 <Badge variant="secondary" className="ml-2">
                   {personalCards.length}
                 </Badge>
               </TabsTrigger>
+              <TabsTrigger value="network" className="flex items-center space-x-2">
+                <span>Ağ</span>
+                <Badge variant="secondary" className="ml-2">
+                  {networkCards.length}
+                </Badge>
+              </TabsTrigger>
             </TabsList>
-
-            <TabsContent value="network" className="space-y-6">
-              {isLoading ? (
-                <div className="space-y-4">
-                  {[...Array(3)].map((_, i) => (
-                    <Card key={i} className="animate-pulse">
-                      <CardHeader>
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-muted rounded-full" />
-                          <div className="space-y-2 flex-1">
-                            <div className="h-4 bg-muted rounded w-1/4" />
-                            <div className="h-3 bg-muted rounded w-1/6" />
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          <div className="h-6 bg-muted rounded w-3/4" />
-                          <div className="h-4 bg-muted rounded w-full" />
-                          <div className="h-4 bg-muted rounded w-5/6" />
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : networkCards.length === 0 ? (
-                <div className="text-center py-12">
-                  <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
-                    Henüz okuma kartı yok
-                  </h3>
-                  <p className="text-muted-foreground">
-                    Topluluk henüz hiç okuma kartı paylaşmamış.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  {networkCards.map((card) => (
-                    <ReadingCardComponent key={card.id} card={card} />
-                  ))}
-                </div>
-              )}
-            </TabsContent>
 
             <TabsContent value="personal" className="space-y-6">
               {isLoading ? (
@@ -408,7 +581,50 @@ const Timeline = () => {
               ) : (
                 <div className="space-y-6">
                   {personalCards.map((card) => (
-                    <ReadingCardComponent key={card.id} card={card} />
+                    <ReadingCardComponent key={card.id} card={card} showOwnerActions={true} />
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="network" className="space-y-6">
+              {isLoading ? (
+                <div className="space-y-4">
+                  {[...Array(3)].map((_, i) => (
+                    <Card key={i} className="animate-pulse">
+                      <CardHeader>
+                        <div className="flex items-center space-x-3">
+                          <div className="w-10 h-10 bg-muted rounded-full" />
+                          <div className="space-y-2 flex-1">
+                            <div className="h-4 bg-muted rounded w-1/4" />
+                            <div className="h-3 bg-muted rounded w-1/6" />
+                          </div>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="space-y-3">
+                          <div className="h-6 bg-muted rounded w-3/4" />
+                          <div className="h-4 bg-muted rounded w-full" />
+                          <div className="h-4 bg-muted rounded w-5/6" />
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : networkCards.length === 0 ? (
+                <div className="text-center py-12">
+                  <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    Henüz ağda okuma kartı yok
+                  </h3>
+                  <p className="text-muted-foreground">
+                    Topluluk henüz hiç okuma kartı paylaşmamış.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {networkCards.map((card) => (
+                    <ReadingCardComponent key={card.id} card={card} showOwnerActions={false} />
                   ))}
                 </div>
               )}

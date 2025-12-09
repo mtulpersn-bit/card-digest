@@ -161,6 +161,7 @@ export type Database = {
           document_id: string
           id: string
           image_url: string | null
+          is_public: boolean
           title: string
           updated_at: string
           user_id: string
@@ -172,6 +173,7 @@ export type Database = {
           document_id: string
           id?: string
           image_url?: string | null
+          is_public?: boolean
           title: string
           updated_at?: string
           user_id: string
@@ -183,6 +185,7 @@ export type Database = {
           document_id?: string
           id?: string
           image_url?: string | null
+          is_public?: boolean
           title?: string
           updated_at?: string
           user_id?: string
