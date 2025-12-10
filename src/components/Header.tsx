@@ -5,30 +5,20 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { Input } from '@/components/ui/input';
 import { Progress } from '@/components/ui/progress';
 import { useAuth } from '@/hooks/useAuth';
 import { useTokenUsage } from '@/hooks/useTokenUsage';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpen, FileText, Bookmark, Plus, User, LogOut, Shield, Menu, X, Globe, Lock, Loader2 } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
+import { BookOpen, FileText, Bookmark, Plus, User, LogOut, Shield, Menu } from 'lucide-react';
 import CreateDocumentDialog from '@/components/CreateDocumentDialog';
 
-interface HeaderProps {
-  documentId?: string;
-  isDocumentPublic?: boolean;
-  isDocumentOwner?: boolean;
-  onVisibilityUpdate?: (isPublic: boolean) => void;
-}
-
-const Header = ({ documentId, isDocumentPublic, isDocumentOwner, onVisibilityUpdate }: HeaderProps) => {
+const Header = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [visibilityLoading, setVisibilityLoading] = useState(false);
   const { tokenUsage } = useTokenUsage(user?.id);
 
   const handleSignOut = async () => {
@@ -50,38 +40,6 @@ const Header = ({ documentId, isDocumentPublic, isDocumentOwner, onVisibilityUpd
       return location.pathname === '/';
     }
     return location.pathname.startsWith(path);
-  };
-
-
-  const toggleDocumentVisibility = async () => {
-    if (!documentId || !onVisibilityUpdate) return;
-    
-    setVisibilityLoading(true);
-    try {
-      const { supabase } = await import('@/integrations/supabase/client');
-      const { error } = await supabase
-        .from('documents')
-        .update({ is_public: !isDocumentPublic })
-        .eq('id', documentId);
-
-      if (error) throw error;
-
-      onVisibilityUpdate(!isDocumentPublic);
-      toast({
-        title: isDocumentPublic ? "Kişisel moda geçildi" : "Ağ moduna geçildi",
-        description: isDocumentPublic 
-          ? "Belgeniz artık sadece size görünür." 
-          : "Belgeniz artık herkese açık.",
-      });
-    } catch (error) {
-      toast({
-        title: "Hata",
-        description: "Görünürlük değiştirilirken bir hata oluştu.",
-        variant: "destructive",
-      });
-    } finally {
-      setVisibilityLoading(false);
-    }
   };
 
   const usagePercentage = tokenUsage.isAdmin ? 0 : (tokenUsage.used / tokenUsage.limit) * 100;
@@ -122,27 +80,6 @@ const Header = ({ documentId, isDocumentPublic, isDocumentOwner, onVisibilityUpd
 
         {/* Actions */}
         <div className="flex items-center space-x-2 md:space-x-3">
-          {/* Document Visibility Toggle (if on document page) */}
-          {isDocumentOwner && documentId && onVisibilityUpdate && (
-            <div className="hidden sm:flex items-center space-x-2 px-3 py-1.5 bg-muted/50 rounded-lg border border-border">
-              {isDocumentPublic ? (
-                <Globe className="w-4 h-4 text-primary" />
-              ) : (
-                <Lock className="w-4 h-4 text-muted-foreground" />
-              )}
-              <span className="text-xs font-medium">
-                {isDocumentPublic ? 'Ağ' : 'Kişisel'}
-              </span>
-              <Switch
-                checked={isDocumentPublic}
-                onCheckedChange={toggleDocumentVisibility}
-                disabled={visibilityLoading}
-                className="scale-75"
-              />
-              {visibilityLoading && <Loader2 className="w-3 h-3 animate-spin" />}
-            </div>
-          )}
-
           {/* Create Document Button */}
           <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
             <DialogTrigger asChild>
@@ -254,27 +191,6 @@ const Header = ({ documentId, isDocumentPublic, isDocumentOwner, onVisibilityUpd
                     </Link>
                   </Button>
                 ))}
-                
-                {/* Mobile Document Visibility Toggle */}
-                {isDocumentOwner && documentId && onVisibilityUpdate && (
-                  <div className="flex items-center justify-between px-3 py-2 bg-muted/50 rounded-lg border border-border mt-4">
-                    <div className="flex items-center space-x-2">
-                      {isDocumentPublic ? (
-                        <Globe className="w-4 h-4 text-primary" />
-                      ) : (
-                        <Lock className="w-4 h-4 text-muted-foreground" />
-                      )}
-                      <span className="text-sm font-medium">
-                        {isDocumentPublic ? 'Ağ Modu' : 'Kişisel'}
-                      </span>
-                    </div>
-                    <Switch
-                      checked={isDocumentPublic}
-                      onCheckedChange={toggleDocumentVisibility}
-                      disabled={visibilityLoading}
-                    />
-                  </div>
-                )}
               </nav>
             </SheetContent>
           </Sheet>
