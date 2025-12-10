@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { BookOpen, User, BookmarkX, ExternalLink, Bookmark, ThumbsUp, Share2, Trash2, Layers } from 'lucide-react';
+import { BookOpen, User, BookmarkX, ExternalLink, Bookmark, ThumbsUp, Share2, Trash2, Layers, Globe, Lock } from 'lucide-react';
 import FlashcardModern from '@/components/FlashcardModern';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
@@ -915,9 +915,19 @@ const Saved = () => {
                   </Button>
                 </div>
               ) : (
-                <div className="grid gap-4 md:grid-cols-2">
+                <div className="grid gap-6 md:grid-cols-2">
                   {flashcards.map((flashcard) => (
-                    <FlashcardComponent key={flashcard.id} flashcard={flashcard} />
+                    <FlashcardModern
+                      key={flashcard.id}
+                      id={flashcard.id}
+                      question={flashcard.question}
+                      answer={flashcard.answer}
+                      viewCount={flashcard.view_count}
+                      documentTitle={flashcard.documents?.title}
+                      documentSlug={flashcard.documents?.slug}
+                      onDelete={deleteFlashcard}
+                      onFlip={flipCard}
+                    />
                   ))}
                 </div>
               )}
