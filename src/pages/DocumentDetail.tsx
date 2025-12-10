@@ -8,12 +8,14 @@ import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useAdminCheck } from '@/hooks/useAdminCheck';
-import { ArrowLeft, BookOpen, Eye, User, Calendar, Bookmark, ThumbsUp, Share2, Trash2, Globe, GlobeLock, Loader2 } from 'lucide-react';
+import { ArrowLeft, BookOpen, Eye, User, Calendar, Bookmark, ThumbsUp, Share2, Trash2, Globe, GlobeLock, Loader2, Layers, Pencil } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import Header from '@/components/Header';
 import { useToast } from '@/hooks/use-toast';
 import CreateReadingCardDialog from '@/components/CreateReadingCardDialog';
+import CreateFlashcardDialog from '@/components/CreateFlashcardDialog';
+import EditReadingCardDialog from '@/components/EditReadingCardDialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -66,6 +68,14 @@ const DocumentDetail = () => {
   const [cardVisibilityLoading, setCardVisibilityLoading] = useState<string | null>(null);
   const [documentVisibilityLoading, setDocumentVisibilityLoading] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+  
+  // Flashcard dialog state
+  const [flashcardDialogOpen, setFlashcardDialogOpen] = useState(false);
+  const [flashcardContent, setFlashcardContent] = useState('');
+  
+  // Edit reading card dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingCard, setEditingCard] = useState<{ id: string; title: string; content: string } | null>(null);
 
   useEffect(() => {
     if (slug) {
@@ -803,6 +813,21 @@ const DocumentDetail = () => {
                               <Button 
                                 variant="ghost" 
                                 size="sm" 
+                                className="text-muted-foreground hover:text-primary"
+                                onClick={() => {
+                                  setEditingCard({ id: card.id, title: card.title, content: card.content });
+                                  setEditDialogOpen(true);
+                                }}
+                              >
+                                <Pencil className="w-4 h-4 mr-1 md:mr-2" />
+                                <span className="hidden md:inline">Düzenle</span>
+                              </Button>
+                            )}
+                            
+                            {cardIsOwner && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
                                 className="text-muted-foreground hover:text-destructive"
                                 onClick={() => deleteReadingCard(card.id)}
                               >
@@ -811,15 +836,29 @@ const DocumentDetail = () => {
                               </Button>
                             )}
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => toggleSaveCard(card.id)}
-                            className={`hover:bg-primary/10 ${savedCards.has(card.id) ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
-                          >
-                            <Bookmark className={`w-4 h-4 mr-1 md:mr-2 ${savedCards.has(card.id) ? 'fill-current' : ''}`} />
-                            <span className="hidden md:inline">{savedCards.has(card.id) ? 'Kaydedildi' : 'Kaydet'}</span>
-                          </Button>
+                          <div className="flex items-center space-x-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                setFlashcardContent(card.content);
+                                setFlashcardDialogOpen(true);
+                              }}
+                              className="text-muted-foreground hover:text-primary"
+                            >
+                              <Layers className="w-4 h-4 mr-1 md:mr-2" />
+                              <span className="hidden md:inline">Flashcard</span>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => toggleSaveCard(card.id)}
+                              className={`hover:bg-primary/10 ${savedCards.has(card.id) ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
+                            >
+                              <Bookmark className={`w-4 h-4 mr-1 md:mr-2 ${savedCards.has(card.id) ? 'fill-current' : ''}`} />
+                              <span className="hidden md:inline">{savedCards.has(card.id) ? 'Kaydedildi' : 'Kaydet'}</span>
+                            </Button>
+                          </div>
                         </div>
                       </CardContent>
                     </Card>
@@ -830,6 +869,34 @@ const DocumentDetail = () => {
           </div>
         </div>
       </main>
+      
+      {/* Flashcard Dialog */}
+      {document && (
+        <CreateFlashcardDialog
+          documentId={document.id}
+          selectedText={flashcardContent}
+          isOpen={flashcardDialogOpen}
+          onClose={() => {
+            setFlashcardDialogOpen(false);
+            setFlashcardContent('');
+          }}
+        />
+      )}
+      
+      {/* Edit Reading Card Dialog */}
+      {editingCard && (
+        <EditReadingCardDialog
+          cardId={editingCard.id}
+          initialTitle={editingCard.title}
+          initialContent={editingCard.content}
+          isOpen={editDialogOpen}
+          onClose={() => {
+            setEditDialogOpen(false);
+            setEditingCard(null);
+          }}
+          onSave={() => fetchDocument()}
+        />
+      )}
     </div>
   );
 };
