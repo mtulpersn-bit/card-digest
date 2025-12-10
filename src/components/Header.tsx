@@ -28,9 +28,8 @@ const Header = ({ documentId, isDocumentPublic, isDocumentOwner, onVisibilityUpd
   const { toast } = useToast();
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [adminCode, setAdminCode] = useState('');
   const [visibilityLoading, setVisibilityLoading] = useState(false);
-  const { tokenUsage, submitAdminCode } = useTokenUsage(user?.id);
+  const { tokenUsage } = useTokenUsage(user?.id);
 
   const handleSignOut = async () => {
     await signOut();
@@ -53,32 +52,6 @@ const Header = ({ documentId, isDocumentPublic, isDocumentOwner, onVisibilityUpd
     return location.pathname.startsWith(path);
   };
 
-  const handleAdminCodeSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!adminCode.trim()) {
-      toast({
-        variant: 'destructive',
-        title: 'Hata',
-        description: 'Lütfen admin kodunu girin',
-      });
-      return;
-    }
-
-    const result = await submitAdminCode(adminCode);
-    if (result.success) {
-      toast({
-        title: 'Başarılı',
-        description: 'Admin yetkisi başarıyla alındı!',
-      });
-      setAdminCode('');
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Hata',
-        description: result.error || 'Admin kodu geçersiz',
-      });
-    }
-  };
 
   const toggleDocumentVisibility = async () => {
     if (!documentId || !onVisibilityUpdate) return;
@@ -234,29 +207,6 @@ const Header = ({ documentId, isDocumentPublic, isDocumentOwner, onVisibilityUpd
                 )}
               </div>
 
-              {/* Admin Code Input */}
-              {!tokenUsage.isAdmin && (
-                <>
-                  <DropdownMenuSeparator />
-                  <div className="px-2 py-3">
-                    <form onSubmit={handleAdminCodeSubmit} className="space-y-2">
-                      <label className="text-xs text-muted-foreground">Admin Kodu</label>
-                      <div className="flex gap-2">
-                        <Input
-                          type="text"
-                          value={adminCode}
-                          onChange={(e) => setAdminCode(e.target.value)}
-                          placeholder="Admin kodunu girin"
-                          className="h-8 text-sm"
-                        />
-                        <Button type="submit" size="sm" className="h-8">
-                          Onayla
-                        </Button>
-                      </div>
-                    </form>
-                  </div>
-                </>
-              )}
               
               <DropdownMenuSeparator />
               <DropdownMenuItem asChild>

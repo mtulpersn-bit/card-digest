@@ -290,7 +290,6 @@ export type Database = {
         }
         Returns: boolean
       }
-      set_admin_with_code: { Args: { _code: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "user"
