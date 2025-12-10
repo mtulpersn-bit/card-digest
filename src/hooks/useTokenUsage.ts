@@ -81,35 +81,5 @@ export const useTokenUsage = (userId: string | undefined) => {
     }
   };
 
-  const submitAdminCode = async (code: string): Promise<{ success: boolean; error?: string }> => {
-    try {
-      const { data, error } = await supabase.rpc('set_admin_with_code', {
-        _code: code
-      });
-
-      if (error) {
-        return { success: false, error: error.message };
-      }
-
-      if (data && typeof data === 'object' && 'success' in data) {
-        if (data.success) {
-          // Refresh token usage to get updated admin status
-          setTokenUsage(prev => ({ ...prev, isAdmin: true }));
-          return { success: true };
-        } else if ('error' in data) {
-          return { success: false, error: data.error as string };
-        }
-      }
-
-      return { success: false, error: 'Beklenmeyen bir hata oluştu' };
-    } catch (error) {
-      console.error('Error submitting admin code:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Bilinmeyen bir hata oluştu' 
-      };
-    }
-  };
-
-  return { tokenUsage, submitAdminCode, refreshTokenUsage };
+  return { tokenUsage, refreshTokenUsage };
 };
