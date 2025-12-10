@@ -6,12 +6,14 @@ import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { BookOpen, User, Bookmark, BookmarkCheck, ExternalLink, ThumbsUp, Share2, Globe, GlobeLock, Trash2, Loader2 } from 'lucide-react';
+import { BookOpen, User, Bookmark, BookmarkCheck, ExternalLink, ThumbsUp, Share2, Globe, GlobeLock, Trash2, Loader2, Layers, Pencil } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { useToast } from '@/components/ui/use-toast';
 import { Link } from 'react-router-dom';
 import Header from '@/components/Header';
+import CreateFlashcardDialog from '@/components/CreateFlashcardDialog';
+import EditReadingCardDialog from '@/components/EditReadingCardDialog';
 
 interface ReadingCard {
   id: string;
@@ -40,6 +42,16 @@ const Timeline = () => {
   const [likedCards, setLikedCards] = useState<Set<string>>(new Set());
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [cardVisibilityLoading, setCardVisibilityLoading] = useState<string | null>(null);
+  
+  // Flashcard dialog state
+  const [flashcardDialogOpen, setFlashcardDialogOpen] = useState(false);
+  const [flashcardContent, setFlashcardContent] = useState('');
+  const [flashcardDocumentId, setFlashcardDocumentId] = useState('');
+  
+  // Edit reading card dialog state
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingCard, setEditingCard] = useState<{ id: string; title: string; content: string } | null>(null);
+  
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -477,6 +489,22 @@ const Timeline = () => {
                 </Button>
               )}
               
+              {/* Edit button - Only for card owner */}
+              {isOwner && showOwnerActions && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-muted-foreground hover:text-primary"
+                  onClick={() => {
+                    setEditingCard({ id: card.id, title: card.title, content: card.content });
+                    setEditDialogOpen(true);
+                  }}
+                >
+                  <Pencil className="w-4 h-4 mr-1 md:mr-2" />
+                  <span className="hidden md:inline">Düzenle</span>
+                </Button>
+              )}
+              
               {isOwner && showOwnerActions && (
                 <Button 
                   variant="ghost" 
@@ -488,6 +516,21 @@ const Timeline = () => {
                   <span className="hidden md:inline">Sil</span>
                 </Button>
               )}
+              
+              {/* Flashcard button - for all users */}
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="text-muted-foreground hover:text-primary"
+                onClick={() => {
+                  setFlashcardContent(card.content);
+                  setFlashcardDocumentId(card.document_id);
+                  setFlashcardDialogOpen(true);
+                }}
+              >
+                <Layers className="w-4 h-4 mr-1 md:mr-2" />
+                <span className="hidden md:inline">Flashcard</span>
+              </Button>
             </div>
             <div className="flex items-center space-x-2">
               <Link 
@@ -632,6 +675,35 @@ const Timeline = () => {
           </Tabs>
         </div>
       </main>
+      
+      {/* Flashcard Dialog */}
+      {flashcardDocumentId && (
+        <CreateFlashcardDialog
+          documentId={flashcardDocumentId}
+          selectedText={flashcardContent}
+          isOpen={flashcardDialogOpen}
+          onClose={() => {
+            setFlashcardDialogOpen(false);
+            setFlashcardContent('');
+            setFlashcardDocumentId('');
+          }}
+        />
+      )}
+      
+      {/* Edit Reading Card Dialog */}
+      {editingCard && (
+        <EditReadingCardDialog
+          cardId={editingCard.id}
+          initialTitle={editingCard.title}
+          initialContent={editingCard.content}
+          isOpen={editDialogOpen}
+          onClose={() => {
+            setEditDialogOpen(false);
+            setEditingCard(null);
+          }}
+          onSave={() => fetchReadingCards()}
+        />
+      )}
     </div>
   );
 };
