@@ -4,14 +4,27 @@ import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Switch } from '@/components/ui/switch';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useAdminCheck } from '@/hooks/useAdminCheck';
 import { ArrowLeft, BookOpen, Eye, User, Calendar, Bookmark, ThumbsUp, Share2, Trash2, Globe, GlobeLock, Loader2 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import Header from '@/components/Header';
 import { useToast } from '@/hooks/use-toast';
 import CreateReadingCardDialog from '@/components/CreateReadingCardDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface DocumentData {
   id: string;
@@ -43,6 +56,7 @@ const DocumentDetail = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
   const { user, loading } = useAuth();
+  const { isAdmin } = useAdminCheck(user?.id);
   const { toast } = useToast();
   const [document, setDocument] = useState<DocumentData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -50,6 +64,8 @@ const DocumentDetail = () => {
   const [likedCards, setLikedCards] = useState<Set<string>>(new Set());
   const [likeCounts, setLikeCounts] = useState<Record<string, number>>({});
   const [cardVisibilityLoading, setCardVisibilityLoading] = useState<string | null>(null);
+  const [documentVisibilityLoading, setDocumentVisibilityLoading] = useState(false);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => {
     if (slug) {
@@ -290,23 +306,34 @@ const DocumentDetail = () => {
     }
   };
 
-  const toggleCardVisibility = async (cardId: string, currentIsPublic: boolean) => {
+  const toggleCardVisibility = async (cardId: string, currentIsPublic: boolean, cardUserId: string) => {
     if (!user) return;
+    
+    // Only owner or admin can toggle
+    const canToggle = user.id === cardUserId || isAdmin;
+    if (!canToggle) return;
 
     setCardVisibilityLoading(cardId);
     try {
-      const { error } = await supabase
+      // Admin can update any card, owner can only update their own
+      const query = supabase
         .from('reading_cards')
         .update({ is_public: !currentIsPublic })
-        .eq('id', cardId)
-        .eq('user_id', user.id);
+        .eq('id', cardId);
+      
+      // Only filter by user_id if not admin
+      if (!isAdmin) {
+        query.eq('user_id', user.id);
+      }
+
+      const { error } = await query;
 
       if (error) throw error;
 
       toast({
         title: currentIsPublic ? "Kart kişisel yapıldı" : "Kart ağda paylaşıldı",
         description: currentIsPublic 
-          ? "Bu kart artık sadece size görünür." 
+          ? "Bu kart artık sadece sahibine görünür." 
           : "Bu kart artık ağda herkese görünür.",
       });
 
@@ -320,6 +347,95 @@ const DocumentDetail = () => {
       });
     } finally {
       setCardVisibilityLoading(null);
+    }
+  };
+
+  const toggleDocumentVisibility = async () => {
+    if (!document || !user) return;
+    
+    // Only owner or admin can toggle
+    const canToggle = user.id === document.user_id || isAdmin;
+    if (!canToggle) return;
+
+    setDocumentVisibilityLoading(true);
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .update({ is_public: !document.is_public })
+        .eq('id', document.id);
+
+      if (error) throw error;
+
+      setDocument(prev => prev ? { ...prev, is_public: !prev.is_public } : null);
+      
+      // If document is made public, make all cards public by default
+      if (!document.is_public) {
+        document.reading_cards.forEach(async (card) => {
+          if (!card.is_public) {
+            await supabase
+              .from('reading_cards')
+              .update({ is_public: true })
+              .eq('id', card.id);
+          }
+        });
+        fetchDocument();
+      }
+
+      toast({
+        title: document.is_public ? "Kişisel moda geçildi" : "Ağ moduna geçildi",
+        description: document.is_public 
+          ? "Belgeniz artık sadece size görünür." 
+          : "Belgeniz artık herkese açık.",
+      });
+    } catch (error) {
+      toast({
+        title: "Hata",
+        description: "Görünürlük değiştirilirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    } finally {
+      setDocumentVisibilityLoading(false);
+    }
+  };
+
+  const deleteDocument = async () => {
+    if (!document || !user) return;
+    
+    // Only owner can delete
+    if (user.id !== document.user_id) {
+      toast({
+        title: "Yetki hatası",
+        description: "Bu belgeyi silme yetkiniz yok.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setDeleteLoading(true);
+    try {
+      const { error } = await supabase
+        .from('documents')
+        .delete()
+        .eq('id', document.id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Belge silindi",
+        description: "Belge başarıyla silindi.",
+      });
+
+      navigate('/documents');
+    } catch (error) {
+      console.error('Error deleting document:', error);
+      toast({
+        title: "Hata",
+        description: "Belge silinirken bir hata oluştu.",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteLoading(false);
     }
   };
 
@@ -380,24 +496,6 @@ const DocumentDetail = () => {
     }
   };
 
-  const handleVisibilityUpdate = (isPublic: boolean) => {
-    setDocument(prev => prev ? { ...prev, is_public: isPublic } : null);
-    
-    // If document is made public, make all cards public by default
-    if (isPublic && document) {
-      document.reading_cards.forEach(async (card) => {
-        if (!card.is_public) {
-          await supabase
-            .from('reading_cards')
-            .update({ is_public: true })
-            .eq('id', card.id)
-            .eq('user_id', user?.id);
-        }
-      });
-      fetchDocument();
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -438,15 +536,21 @@ const DocumentDetail = () => {
   }
 
   const isOwner = user?.id === document.user_id;
+  const canToggleVisibility = isOwner || isAdmin;
+
+  // Get display name - prefer full_name, fallback to display_name from profile
+  const getDisplayName = () => {
+    const profileName = document.profiles?.display_name;
+    // If display_name looks like an email, try to show something else
+    if (profileName && profileName.includes('@')) {
+      return profileName.split('@')[0]; // Show part before @ as fallback
+    }
+    return profileName || 'Anonim Kullanıcı';
+  };
 
   return (
     <div className="min-h-screen bg-background">
-      <Header 
-        documentId={document.id}
-        isDocumentPublic={document.is_public}
-        isDocumentOwner={isOwner}
-        onVisibilityUpdate={handleVisibilityUpdate}
-      />
+      <Header />
       
       <main className="container mx-auto px-4 py-8">
         <div className="max-w-4xl mx-auto">
@@ -471,7 +575,7 @@ const DocumentDetail = () => {
               </Avatar>
               <div className="flex-1">
                 <p className="font-medium text-foreground">
-                  {document.profiles?.display_name || 'Anonim Kullanıcı'}
+                  {getDisplayName()}
                 </p>
                 <div className="flex items-center space-x-4 text-sm text-muted-foreground">
                   <div className="flex items-center space-x-1">
@@ -493,6 +597,27 @@ const DocumentDetail = () => {
                   </div>
                 </div>
               </div>
+              
+              {/* Visibility Toggle - moved to account info row */}
+              {canToggleVisibility && (
+                <div className="flex items-center space-x-2 px-3 py-1.5 bg-muted/50 rounded-lg border border-border">
+                  {document.is_public ? (
+                    <Globe className="w-4 h-4 text-primary" />
+                  ) : (
+                    <GlobeLock className="w-4 h-4 text-muted-foreground" />
+                  )}
+                  <span className="text-xs font-medium">
+                    {document.is_public ? 'Ağ' : 'Kişisel'}
+                  </span>
+                  <Switch
+                    checked={document.is_public}
+                    onCheckedChange={toggleDocumentVisibility}
+                    disabled={documentVisibilityLoading}
+                    className="scale-75"
+                  />
+                  {documentVisibilityLoading && <Loader2 className="w-3 h-3 animate-spin" />}
+                </div>
+              )}
             </div>
 
             <div className="flex items-start justify-between mb-6">
@@ -514,6 +639,44 @@ const DocumentDetail = () => {
                     <Eye className="w-4 h-4 mr-2" />
                     Belgeyi Görüntüle
                   </Button>
+                )}
+                
+                {/* Delete Document Button - only for owner */}
+                {isOwner && (
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button 
+                        variant="outline" 
+                        size="sm"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        disabled={deleteLoading}
+                      >
+                        {deleteLoading ? (
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                          <Trash2 className="w-4 h-4 mr-2" />
+                        )}
+                        Belgeyi Sil
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Bu belgeyi silmek istediğinize emin misiniz?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Bu işlem geri alınamaz. Belge ve tüm ilişkili okuma kartları kalıcı olarak silinecektir.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>İptal</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={deleteDocument}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                        >
+                          Sil
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 )}
               </div>
             </div>
@@ -551,22 +714,38 @@ const DocumentDetail = () => {
               </Card>
             ) : (
               <div className="space-y-6">
-                {document.reading_cards.map((card) => (
-                  <Card key={card.id} className="bg-gradient-card border-0 hover:shadow-medium transition-all duration-300 overflow-hidden">
-                    <CardContent className="pb-4">
-                      {card.image_url ? (
-                        <div className="flex flex-col lg:flex-row gap-6 mb-6">
-                          <div className="lg:w-1/3 flex-shrink-0">
-                            <img 
-                              src={card.image_url} 
-                              alt={card.title}
-                              className="w-full h-48 lg:h-64 object-cover rounded-lg shadow-lg"
-                              onError={(e) => {
-                                (e.target as HTMLImageElement).style.display = 'none';
-                              }}
-                            />
+                {document.reading_cards.map((card) => {
+                  const cardIsOwner = user?.id === card.user_id;
+                  const canToggleCardVisibility = cardIsOwner || isAdmin;
+                  
+                  return (
+                    <Card key={card.id} className="bg-gradient-card border-0 hover:shadow-medium transition-all duration-300 overflow-hidden">
+                      <CardContent className="pb-4">
+                        {card.image_url ? (
+                          <div className="flex flex-col lg:flex-row gap-6 mb-6">
+                            <div className="lg:w-1/3 flex-shrink-0">
+                              <img 
+                                src={card.image_url} 
+                                alt={card.title}
+                                className="w-full h-48 lg:h-64 object-cover rounded-lg shadow-lg"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            </div>
+                            <div className="lg:w-2/3" id={`card-${card.id}`}>
+                              <CardTitle className="text-2xl font-bold text-foreground mb-4">
+                                <span className="leading-tight">{card.title}</span>
+                              </CardTitle>
+                              <div className="prose prose-slate max-w-none">
+                                <p className="whitespace-pre-wrap text-foreground text-lg leading-relaxed font-medium">
+                                  {card.content}
+                                </p>
+                              </div>
+                            </div>
                           </div>
-                          <div className="lg:w-2/3" id={`card-${card.id}`}>
+                        ) : (
+                          <div className="mb-6" id={`card-${card.id}`}>
                             <CardTitle className="text-2xl font-bold text-foreground mb-4">
                               <span className="leading-tight">{card.title}</span>
                             </CardTitle>
@@ -576,87 +755,76 @@ const DocumentDetail = () => {
                               </p>
                             </div>
                           </div>
-                        </div>
-                      ) : (
-                        <div className="mb-6" id={`card-${card.id}`}>
-                          <CardTitle className="text-2xl font-bold text-foreground mb-4">
-                            <span className="leading-tight">{card.title}</span>
-                          </CardTitle>
-                          <div className="prose prose-slate max-w-none">
-                            <p className="whitespace-pre-wrap text-foreground text-lg leading-relaxed font-medium">
-                              {card.content}
-                            </p>
+                        )}
+                        
+                        {/* Action buttons */}
+                        <div className="flex items-center justify-between pt-4 border-t border-border/50">
+                          <div className="flex items-center space-x-2 md:space-x-4 flex-wrap gap-y-2">
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className={`${likedCards.has(card.id) ? 'text-primary' : 'text-muted-foreground'} hover:text-primary`}
+                              onClick={() => toggleLikeCard(card.id)}
+                            >
+                              <ThumbsUp className={`w-4 h-4 mr-1 md:mr-2 ${likedCards.has(card.id) ? 'fill-current' : ''}`} />
+                              <span className="hidden md:inline">Beğen</span> {likeCounts[card.id] ? `(${likeCounts[card.id]})` : ''}
+                            </Button>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="text-muted-foreground hover:text-primary"
+                              onClick={() => handleShare(card.id, card.title, card.content)}
+                            >
+                              <Share2 className="w-4 h-4 mr-1 md:mr-2" />
+                              <span className="hidden md:inline">Paylaş</span>
+                            </Button>
+                            
+                            {/* Network Share Toggle - for card owner or admin */}
+                            {canToggleCardVisibility && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className={`${card.is_public ? 'text-primary' : 'text-muted-foreground'} hover:text-primary`}
+                                onClick={() => toggleCardVisibility(card.id, card.is_public, card.user_id)}
+                                disabled={cardVisibilityLoading === card.id}
+                              >
+                                {cardVisibilityLoading === card.id ? (
+                                  <Loader2 className="w-4 h-4 mr-1 md:mr-2 animate-spin" />
+                                ) : card.is_public ? (
+                                  <Globe className="w-4 h-4 mr-1 md:mr-2" />
+                                ) : (
+                                  <GlobeLock className="w-4 h-4 mr-1 md:mr-2" />
+                                )}
+                                <span className="hidden md:inline">{card.is_public ? 'Ağda' : 'Kişisel'}</span>
+                              </Button>
+                            )}
+                            
+                            {cardIsOwner && (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-muted-foreground hover:text-destructive"
+                                onClick={() => deleteReadingCard(card.id)}
+                              >
+                                <Trash2 className="w-4 h-4 mr-1 md:mr-2" />
+                                <span className="hidden md:inline">Sil</span>
+                              </Button>
+                            )}
                           </div>
-                        </div>
-                      )}
-                      
-                      {/* Action buttons */}
-                      <div className="flex items-center justify-between pt-4 border-t border-border/50">
-                        <div className="flex items-center space-x-2 md:space-x-4 flex-wrap gap-y-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className={`${likedCards.has(card.id) ? 'text-primary' : 'text-muted-foreground'} hover:text-primary`}
-                            onClick={() => toggleLikeCard(card.id)}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => toggleSaveCard(card.id)}
+                            className={`hover:bg-primary/10 ${savedCards.has(card.id) ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
                           >
-                            <ThumbsUp className={`w-4 h-4 mr-1 md:mr-2 ${likedCards.has(card.id) ? 'fill-current' : ''}`} />
-                            <span className="hidden md:inline">Beğen</span> {likeCounts[card.id] ? `(${likeCounts[card.id]})` : ''}
+                            <Bookmark className={`w-4 h-4 mr-1 md:mr-2 ${savedCards.has(card.id) ? 'fill-current' : ''}`} />
+                            <span className="hidden md:inline">{savedCards.has(card.id) ? 'Kaydedildi' : 'Kaydet'}</span>
                           </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-muted-foreground hover:text-primary"
-                            onClick={() => handleShare(card.id, card.title, card.content)}
-                          >
-                            <Share2 className="w-4 h-4 mr-1 md:mr-2" />
-                            <span className="hidden md:inline">Paylaş</span>
-                          </Button>
-                          
-                          {/* Network Share Toggle - Only for card owner */}
-                          {user?.id === card.user_id && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className={`${card.is_public ? 'text-primary' : 'text-muted-foreground'} hover:text-primary`}
-                              onClick={() => toggleCardVisibility(card.id, card.is_public)}
-                              disabled={cardVisibilityLoading === card.id}
-                            >
-                              {cardVisibilityLoading === card.id ? (
-                                <Loader2 className="w-4 h-4 mr-1 md:mr-2 animate-spin" />
-                              ) : card.is_public ? (
-                                <Globe className="w-4 h-4 mr-1 md:mr-2" />
-                              ) : (
-                                <GlobeLock className="w-4 h-4 mr-1 md:mr-2" />
-                              )}
-                              <span className="hidden md:inline">{card.is_public ? 'Ağda' : 'Kişisel'}</span>
-                            </Button>
-                          )}
-                          
-                          {user?.id === card.user_id && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="text-muted-foreground hover:text-destructive"
-                              onClick={() => deleteReadingCard(card.id)}
-                            >
-                              <Trash2 className="w-4 h-4 mr-1 md:mr-2" />
-                              <span className="hidden md:inline">Sil</span>
-                            </Button>
-                          )}
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => toggleSaveCard(card.id)}
-                          className={`hover:bg-primary/10 ${savedCards.has(card.id) ? 'text-primary' : 'text-muted-foreground hover:text-primary'}`}
-                        >
-                          <Bookmark className={`w-4 h-4 mr-1 md:mr-2 ${savedCards.has(card.id) ? 'fill-current' : ''}`} />
-                          <span className="hidden md:inline">{savedCards.has(card.id) ? 'Kaydedildi' : 'Kaydet'}</span>
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
             )}
           </div>

@@ -6,7 +6,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
-import { BookOpen, User, BookmarkX, ExternalLink, Bookmark, ThumbsUp, Share2, Trash2, Layers, FileText, Globe, Lock } from 'lucide-react';
+import { BookOpen, User, BookmarkX, ExternalLink, Bookmark, ThumbsUp, Share2, Trash2, Layers } from 'lucide-react';
+import FlashcardModern from '@/components/FlashcardModern';
 import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { useToast } from '@/components/ui/use-toast';
@@ -881,22 +882,14 @@ const Saved = () => {
           </div>
 
           <Tabs defaultValue="flashcards" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 mb-6">
+            <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="flashcards" className="flex items-center gap-2">
                 <Layers className="w-4 h-4" />
-                <span className="hidden sm:inline">Flashcard</span>
+                <span>Flashcard</span>
               </TabsTrigger>
               <TabsTrigger value="saved" className="flex items-center gap-2">
                 <Bookmark className="w-4 h-4" />
-                <span className="hidden sm:inline">Kaydedilenler</span>
-              </TabsTrigger>
-              <TabsTrigger value="cards" className="flex items-center gap-2">
-                <BookOpen className="w-4 h-4" />
-                <span className="hidden sm:inline">Kartlar</span>
-              </TabsTrigger>
-              <TabsTrigger value="documents" className="flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                <span className="hidden sm:inline">Belgeler</span>
+                <span>Kaydedilenler</span>
               </TabsTrigger>
             </TabsList>
 
@@ -958,118 +951,6 @@ const Saved = () => {
                   ))}
                 </div>
               )}
-            </TabsContent>
-
-            {/* Reading Cards Tab */}
-            <TabsContent value="cards">
-              <Tabs defaultValue="personal" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="personal" className="flex items-center gap-2">
-                    <Lock className="w-4 h-4" />
-                    Kişisel
-                  </TabsTrigger>
-                  <TabsTrigger value="network" className="flex items-center gap-2">
-                    <Globe className="w-4 h-4" />
-                    Ağ
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="personal">
-                  {readingCards.length === 0 ? (
-                    <div className="text-center py-12">
-                      <BookOpen className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-foreground mb-2">
-                        Henüz okuma kartı yok
-                      </h3>
-                      <p className="text-muted-foreground">
-                        Belgelerinizden okuma kartları oluşturun.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {readingCards.map((card) => (
-                        <ReadingCardComponent key={card.id} card={card} />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="network">
-                  {networkReadingCards.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Globe className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-foreground mb-2">
-                        Henüz paylaşılan kart yok
-                      </h3>
-                      <p className="text-muted-foreground">
-                        Ağda paylaşılan okuma kartları burada görünecek.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {networkReadingCards.map((card) => (
-                        <ReadingCardComponent key={card.id} card={card} isNetwork />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
-            </TabsContent>
-
-            {/* Documents Tab */}
-            <TabsContent value="documents">
-              <Tabs defaultValue="personal" className="w-full">
-                <TabsList className="grid w-full grid-cols-2 mb-4">
-                  <TabsTrigger value="personal" className="flex items-center gap-2">
-                    <Lock className="w-4 h-4" />
-                    Kişisel
-                  </TabsTrigger>
-                  <TabsTrigger value="network" className="flex items-center gap-2">
-                    <Globe className="w-4 h-4" />
-                    Ağ
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="personal">
-                  {personalDocuments.length === 0 ? (
-                    <div className="text-center py-12">
-                      <FileText className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-foreground mb-2">
-                        Henüz belge yok
-                      </h3>
-                      <p className="text-muted-foreground">
-                        İlk belgenizi oluşturun.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {personalDocuments.map((doc) => (
-                        <DocumentCardComponent key={doc.id} document={doc} />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-
-                <TabsContent value="network">
-                  {networkDocuments.length === 0 ? (
-                    <div className="text-center py-12">
-                      <Globe className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-foreground mb-2">
-                        Henüz paylaşılan belge yok
-                      </h3>
-                      <p className="text-muted-foreground">
-                        Ağda paylaşılan belgeler burada görünecek.
-                      </p>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      {networkDocuments.map((doc) => (
-                        <DocumentCardComponent key={doc.id} document={doc} />
-                      ))}
-                    </div>
-                  )}
-                </TabsContent>
-              </Tabs>
             </TabsContent>
           </Tabs>
         </div>
